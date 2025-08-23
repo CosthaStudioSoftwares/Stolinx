@@ -46,21 +46,42 @@
             font-size: 0.875rem;
             color: var(--color-dark-variant);
         }
+
+        /* --- NOVOS ESTILOS PARA A BUSCA DE PRODUTOS --- */
+        .search-results-list {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-top: none;
+            /* Corrigindo para que a lista não empurre o conteúdo para baixo */
+            width: calc(100% - 120px); /* Largura total menos o campo de quantidade e o gap */
+        }
+        .search-result-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--color-light);
+            background-color: var(--color-white);
+            color: var(--color-dark);
+        }
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+        .search-result-item:hover {
+            background-color: var(--color-info-light);
+        }
     </style>
 
     <!-- Adicione estas linhas dentro da tag <head> -->
 
-<!-- Cor da barra de status em navegadores mobile -->
-<meta name="theme-color" content="#009688">
+    <!-- Cor da barra de status em navegadores mobile -->
+    <meta name="theme-color" content="#009688">
 
-<!-- Link para o manifest.json -->
-<link rel="manifest" href="manifest.json">
+    <!-- Link para o manifest.json -->
+    <link rel="manifest" href="manifest.json">
 
-<!-- Ícone para dispositivos Apple -->
-<link rel="apple-touch-icon" href="icon-192x192.png">
+    <!-- Ícone para dispositivos Apple -->
+    <link rel="apple-touch-icon" href="icon-192x192.png">
 
-<!-- Script para registrar o Service Worker -->
-<script>
+    <!-- Script para registrar o Service Worker -->
+    <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/service-worker.js')
@@ -72,7 +93,7 @@
                 });
         });
     }
-</script>
+    </script>
 
 </head>
 <body>
@@ -113,12 +134,12 @@
         <main>
              <div class="top-bar">
                  <div class="top-bar-left">
-                    <button id="menu-btn">
-                        <span class="material-icons-sharp">menu</span>
-                    </button>
-                    <h1 id="mobile-page-title">Vendas</h1>
-                </div>
-            </div>
+                     <button id="menu-btn">
+                         <span class="material-icons-sharp">menu</span>
+                     </button>
+                     <h1 id="mobile-page-title">Vendas</h1>
+                 </div>
+             </div>
 
             <div id="vendas" class="main-content active">
                 <h1>Registrar Venda / Orçamento</h1>
@@ -134,15 +155,20 @@
                             <input type="tel" id="telefoneCliente" placeholder="(xx) X xxxx-xxxx" maxlength="16">
                         </div>
 
-                        <div class="input-group" style="grid-column: 1 / -1;">
-                             <label for="selectProdutoVenda">Adicionar Produto</label>
-                             <div style="display: flex; gap: 1rem;">
-                                <select id="selectProdutoVenda" style="flex-grow: 1;">
-                                    <option value="">Cadastre um item no estoque primeiro</option>
-                                </select>
+                        <!-- ========== ÁREA DO PRODUTO MODIFICADA ========== -->
+                        <div class="input-group" style="grid-column: 1 / -1; position: relative;">
+                            <label for="buscaProdutoVenda">Adicionar Produto</label>
+                            <div style="display: flex; gap: 1rem;">
+                                <!-- Campo de busca -->
+                                <input type="text" id="buscaProdutoVenda" placeholder="Digite para buscar um produto..." style="flex-grow: 1;">
                                 <input type="number" id="quantidadeVenda" value="1" min="1" style="max-width: 100px;">
-                             </div>
+                            </div>
+                            <!-- Container para os resultados da busca -->
+                            <div id="listaProdutosBusca" class="search-results-list" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 1000; max-height: 200px; overflow-y: auto;">
+                                <!-- Itens do produto serão inseridos aqui pelo JS -->
+                            </div>
                         </div>
+                        <!-- =============================================== -->
 
                         <div class="input-group" style="grid-column: 1 / -1;">
                             <button type="button" id="addItemOrcamento" style="width: auto; padding: 10px 30px;">Adicionar ao Orçamento</button>
@@ -270,6 +296,10 @@
                     let currentPageVendas = 1; // Página atual
                     const itemsPerPageVendas = 5; // Itens por página
 
+                    // --- NOVAS VARIÁVEIS PARA BUSCA DE PRODUTOS ---
+                    let todosOsProdutosParaVenda = [];
+                    let selectedProductData = null; // Guarda os dados do produto selecionado na busca
+
                     document.querySelectorAll('.currency').forEach(input => {
                         input.addEventListener('input', () => formatCurrency(input));
                     });
@@ -284,26 +314,87 @@
                         e.target.value = value;
                     });
 
-
+                    // ========== FUNÇÃO DE CARREGAR PRODUTOS MODIFICADA ==========
                     function carregarProdutosParaVenda() {
                         const unsub = getUserCollection("produtos").orderBy("nome").onSnapshot((querySnapshot) => {
-                            const selectVenda = document.getElementById('selectProdutoVenda');
-                            selectVenda.innerHTML = '<option value="">Selecione um item do estoque</option>';
+                            todosOsProdutosParaVenda = []; // Limpa a lista antes de preencher
                             querySnapshot.forEach((doc) => {
                                 const produto = doc.data();
                                 if (produto.quantidade > 0) {
-                                    const option = document.createElement('option');
-                                    option.value = doc.id;
-                                    option.textContent = `${produto.nome} (Estoque: ${produto.quantidade}) - R$ ${produto.valorVenda.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-                                    option.dataset.price = produto.valorVenda;
-                                    option.dataset.cost = produto.custo;
-                                    option.dataset.name = produto.nome;
-                                    selectVenda.appendChild(option);
+                                    // Adiciona o produto com seu ID à lista
+                                    todosOsProdutosParaVenda.push({
+                                        id: doc.id,
+                                        ...produto
+                                    });
                                 }
                             });
                         });
                         firestoreUnsubscribes.push(unsub);
                     }
+
+                    // ========== NOVAS FUNÇÕES E EVENTOS PARA A BUSCA ==========
+                    const buscaInput = document.getElementById('buscaProdutoVenda');
+                    const listaResultados = document.getElementById('listaProdutosBusca');
+
+                    // Função para renderizar a lista de produtos filtrados
+                    function renderizarListaProdutos(produtosFiltrados) {
+                        listaResultados.innerHTML = '';
+                        if (produtosFiltrados.length === 0) {
+                            listaResultados.innerHTML = `<div class="search-result-item">Nenhum produto encontrado.</div>`;
+                        } else {
+                            produtosFiltrados.forEach(produto => {
+                                const itemDiv = document.createElement('div');
+                                itemDiv.className = 'search-result-item';
+                                itemDiv.textContent = `${produto.nome} (Estoque: ${produto.quantidade}) - R$ ${produto.valorVenda.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                                // Armazena todos os dados do produto como uma string JSON no elemento
+                                itemDiv.dataset.produto = JSON.stringify(produto);
+                                listaResultados.appendChild(itemDiv);
+                            });
+                        }
+                        listaResultados.style.display = 'block';
+                    }
+
+                    // Evento de digitação no campo de busca
+                    buscaInput.addEventListener('input', () => {
+                        selectedProductData = null; // Limpa a seleção anterior ao digitar
+                        const termo = buscaInput.value.toLowerCase().trim();
+                        if (termo.length === 0) {
+                            listaResultados.style.display = 'none';
+                            return;
+                        }
+                        const produtosFiltrados = todosOsProdutosParaVenda.filter(p =>
+                            p.nome.toLowerCase().includes(termo)
+                        );
+                        renderizarListaProdutos(produtosFiltrados);
+                    });
+
+                    // Mostra todos os produtos quando o campo ganha foco
+                    buscaInput.addEventListener('focus', () => {
+                        if (buscaInput.value.length === 0) {
+                            renderizarListaProdutos(todosOsProdutosParaVenda);
+                        }
+                    });
+
+                    // Evento de clique em um item da lista de resultados
+                    listaResultados.addEventListener('click', (e) => {
+                        if (e.target && e.target.classList.contains('search-result-item')) {
+                            const produtoDataString = e.target.dataset.produto;
+                            if (produtoDataString) {
+                                selectedProductData = JSON.parse(produtoDataString);
+                                buscaInput.value = selectedProductData.nome; // Preenche o input com o nome
+                                listaResultados.style.display = 'none'; // Esconde a lista
+                            }
+                        }
+                    });
+
+                    // Esconde a lista se o usuário clicar fora dela
+                    document.addEventListener('click', (e) => {
+                        const buscaContainer = buscaInput.parentElement.parentElement;
+                        if (!buscaContainer.contains(e.target)) {
+                            listaResultados.style.display = 'none';
+                        }
+                    });
+                    // ==========================================================
 
                     function atualizarTabelaOrcamento() {
                         const orcamentoBody = document.getElementById('orcamento-body');
@@ -340,21 +431,29 @@
                         document.getElementById('subtotal-venda').textContent = `R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
                         document.getElementById('total-venda').textContent = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
                     }
-
+                    
+                    // ========== BOTÃO DE ADICIONAR ITEM MODIFICADO ==========
                     document.getElementById('addItemOrcamento').addEventListener('click', () => {
-                        const select = document.getElementById('selectProdutoVenda');
-                        const produtoId = select.value;
-                        if (!produtoId) return;
-                        const selectedOption = select.options[select.selectedIndex];
+                        if (!selectedProductData) {
+                            showAppNotification('Por favor, selecione um produto da lista.');
+                            return;
+                        }
+                        
                         orcamento.push({
-                            id: produtoId,
-                            nome: selectedOption.dataset.name,
+                            id: selectedProductData.id,
+                            nome: selectedProductData.nome,
                             qtd: parseInt(document.getElementById('quantidadeVenda').value),
-                            preco: parseFloat(selectedOption.dataset.price),
-                            custo: parseFloat(selectedOption.dataset.cost)
+                            preco: parseFloat(selectedProductData.valorVenda),
+                            custo: parseFloat(selectedProductData.custo)
                         });
                         atualizarTabelaOrcamento();
+                        
+                        // Limpa a seleção para a próxima adição
+                        selectedProductData = null;
+                        buscaInput.value = '';
+                        document.getElementById('quantidadeVenda').value = '1';
                     });
+                    // ========================================================
 
                     document.getElementById('descontoVenda').addEventListener('input', atualizarTabelaOrcamento);
 
@@ -495,8 +594,8 @@
                         if (dataFim) {
                              const fim = new Date(dataFim + 'T23:59:59');
                              vendasTemp = vendasTemp.filter(v => {
-                                if (!v.data || !v.data.toDate) return false;
-                                return v.data.toDate() <= fim;
+                                 if (!v.data || !v.data.toDate) return false;
+                                 return v.data.toDate() <= fim;
                             });
                         }
 
