@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stolinx - Estoque</title>
+    <script>
+    // Aplica o tema imediatamente para evitar o "flash" da tela clara
+    if (localStorage.getItem('darkMode') === 'enabled') {
+        document.documentElement.classList.add('dark-theme');
+    }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Sharp" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Estilos adicionados para a paginação */
+        .pagination-container {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 1rem;
+            padding: 0.5rem;
+        }
+        .pagination-button {
+            background-color: var(--color-primary);
+            color: var(--color-white);
+            border: none;
+            border-radius: var(--border-radius-1);
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 500;
+            transition: all 300ms ease;
+        }
+        .pagination-button:hover {
+            opacity: 0.8;
+        }
+        .pagination-button:disabled {
+            background-color: var(--color-light);
+            color: var(--color-dark-variant);
+            cursor: not-allowed;
+        }
+        #page-info {
+            font-size: 0.875rem;
+            color: var(--color-dark-variant);
+        }
+    </style>
+
+    <!-- Adicione estas linhas dentro da tag <head> -->
+
+<!-- Cor da barra de status em navegadores mobile -->
+<meta name="theme-color" content="#009688">
+
+<!-- Link para o manifest.json -->
+<link rel="manifest" href="manifest.json">
+
+<!-- Ícone para dispositivos Apple -->
+<link rel="apple-touch-icon" href="icon-192x192.png">
+
+<!-- Script para registrar o Service Worker -->
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/service-worker.js')
+                .then(registration => {
+                    console.log('Service Worker registrado com sucesso:', registration);
+                })
+                .catch(error => {
+                    console.log('Falha ao registrar o Service Worker:', error);
+                });
+        });
+    }
+</script>
+
+    <!-- Adicione estas linhas dentro da tag <head> -->
+
+<!-- Cor da barra de status em navegadores mobile -->
+<meta name="theme-color" content="#009688">
+
+<!-- Link para o manifest.json -->
+<link rel="manifest" href="manifest.json">
+
+<!-- Ícone para dispositivos Apple -->
+<link rel="apple-touch-icon" href="icon-192x192.png">
+
+<!-- Script para registrar o Service Worker -->
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/service-worker.js')
+                .then(registration => {
+                    console.log('Service Worker registrado com sucesso:', registration);
+                })
+                .catch(error => {
+                    console.log('Falha ao registrar o Service Worker:', error);
+                });
+        });
+    }
+</script>
+
+
+</head>
+<body>
+    <div class="container visible">
+        <aside>
+            <div class="top">
+                <div class="logo">
+                    <h2>STOL<span class="danger">INX</span></h2>
+                </div>
+                <div class="close" id="close-btn">
+                    <span class="material-icons-sharp">close</span>
+                </div>
+            </div>
+            <div class="sidebar">
+                <a href="dashboard.html" class="nav-link">
+                    <span class="material-icons-sharp">grid_view</span>
+                    <h3>Dashboard</h3>
+                </a>
+                <a href="estoque.html" class="nav-link active">
+                    <span class="material-icons-sharp">inventory_2</span>
+                    <h3>Estoque</h3>
+                </a>
+                <a href="vendas.html" class="nav-link">
+                    <span class="material-icons-sharp">receipt_long</span>
+                    <h3>Vendas</h3>
+                </a>
+                <a href="#" id="theme-toggler-link">
+                    <span class="material-icons-sharp">light_mode</span>
+                    <h3>Tema</h3>
+                </a>
+                <a href="#" id="logout-btn">
+                    <span class="material-icons-sharp">logout</span>
+                    <h3>Sair</h3>
+                </a>
+            </div>
+        </aside>
+
+        <main>
+            <div class="top-bar">
+                 <div class="top-bar-left">
+                    <button id="menu-btn">
+                        <span class="material-icons-sharp">menu</span>
+                    </button>
+                    <h1 id="mobile-page-title">Estoque</h1>
+                </div>
+            </div>
+
+            <div id="estoque" class="main-content active">
+                <h1>Gerenciar Estoque</h1>
+                <div class="card">
+                    <h2>Cadastrar Novo Item</h2>
+                    <form class="form-container" id="form-cadastro-produto">
+                        <input type="hidden" id="editProductId">
+                        <div class="input-group">
+                            <label for="codigoProduto">Código do Produto</label>
+                            <input type="text" id="codigoProduto" placeholder="Ex: SB001" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="nomeProduto">Nome do Produto</label>
+                            <input type="text" id="nomeProduto" placeholder="Ex: Sabonete Líquido" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="validade">Validade</label>
+                            <input type="date" id="validade">
+                        </div>
+                        <div class="input-group">
+                            <label for="quantidade">Quantidade</label>
+                            <input type="number" id="quantidade" placeholder="Ex: 50" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="custoProduto">Custo do Produto</label>
+                            <input type="text" class="currency" id="custoProduto" placeholder="Digite o valor" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="valorVenda">Valor de Venda</label>
+                            <input type="text" class="currency" id="valorVenda" placeholder="Digite o valor" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="categoria">Categoria</label>
+                            <div style="display: flex; gap: 10px;">
+                                <select id="categoria" style="flex-grow: 1;"></select>
+                                <button type="button" id="open-category-modal" class="btn-warning" style="width: auto; padding: 0 15px;">
+                                    <span class="material-icons-sharp">settings</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="input-group" style="justify-content: flex-end;">
+                            <button type="submit" class="btn-success">Cadastrar Produto</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h2>Itens em Estoque</h2>
+                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                        <input type="text" class="search-bar" id="searchEstoque" placeholder="Pesquisar..." style="margin-bottom: 0;">
+                        <button id="export-estoque-pdf-btn" title="Baixar Relatório de Estoque em PDF" style="width: auto; flex-shrink: 0;">
+                            <span class="material-icons-sharp">picture_as_pdf</span>
+                        </button>
+                    </div>
+                    <small class="search-instruction">Busque por nome, código, "vencendo" ou "repor".</small>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Produto</th>
+                                    <th>Qtd.</th>
+                                    <th>Custo</th>
+                                    <th>Venda</th>
+                                    <th>Lucro/Un.</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-estoque-body"></tbody>
+                        </table>
+                    </div>
+                    <!-- Controles de Paginação Adicionados -->
+                    <div id="pagination-controls" class="pagination-container">
+                        <button id="prev-page" class="pagination-button">&lt;&lt;</button>
+                        <span id="page-info"></span>
+                        <button id="next-page" class="pagination-button">&gt;&gt;</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Modals -->
+    <div class="modal-overlay" id="category-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>Gerenciar Categorias</h2>
+                <button class="close-modal" id="close-category-modal"><span class="material-icons-sharp">close</span></button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="nova-categoria-nome">Adicionar Nova Categoria</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="nova-categoria-nome" placeholder="Nome da Categoria">
+                        <button id="add-categoria-btn" class="btn-success" style="width: auto;">Adicionar</button>
+                    </div>
+                </div>
+                <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Categorias Existentes</h3>
+                <ul id="lista-categorias"></ul>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="app-notification-modal">
+        <div class="modal-container" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 id="app-notification-title">Aviso</h2>
+                <button class="close-modal" id="app-notification-close-btn"><span class="material-icons-sharp">close</span></button>
+            </div>
+            <div class="modal-body">
+                <p id="app-notification-message" style="margin-bottom: 1.5rem;"></p>
+                <div id="app-notification-buttons" style="display: flex; justify-content: flex-end; gap: 1rem;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <!-- Bibliotecas para gerar PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeApp({
+                page: 'estoque',
+                init: () => {
+                    // --- VARIÁVEIS GLOBAIS PARA ESTOQUE E PAGINAÇÃO ---
+                    let todosOsProdutos = []; // Lista mestre com todos os produtos do Firestore
+                    let produtosFiltrados = []; // Lista usada para exibição (após busca/filtro)
+                    let todasAsCategorias = [];
+                    let currentPage = 1; // Página atual
+                    const itemsPerPage = 5; // Itens por página
+
+                    const formCadastro = document.getElementById('form-cadastro-produto');
+                    const categoryModal = document.getElementById('category-modal');
+                    
+                    document.querySelectorAll('.currency').forEach(input => {
+                        input.addEventListener('input', () => formatCurrency(input));
+                    });
+
+                    document.getElementById('open-category-modal').addEventListener('click', () => categoryModal.style.display = 'flex');
+                    document.getElementById('close-category-modal').addEventListener('click', () => categoryModal.style.display = 'none');
+                    categoryModal.addEventListener('click', (e) => { if (e.target === categoryModal) categoryModal.style.display = 'none'; });
+
+                    document.getElementById('add-categoria-btn').addEventListener('click', () => {
+                        const nomeInput = document.getElementById('nova-categoria-nome');
+                        const nomeCategoria = nomeInput.value.trim();
+                        if (nomeCategoria === "") {
+                            showAppNotification('Por favor, digite um nome para a categoria.');
+                            return;
+                        }
+                        getUserCollection("categorias").add({ nome: nomeCategoria })
+                            .then(() => { nomeInput.value = ""; })
+                            .catch(error => { console.error("Erro ao adicionar categoria: ", error); });
+                    });
+
+                    formCadastro.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const produto = {
+                            codigo: formCadastro.codigoProduto.value.trim(),
+                            nome: formCadastro.nomeProduto.value.trim(),
+                            validade: formCadastro.validade.value,
+                            quantidade: parseInt(formCadastro.quantidade.value),
+                            custo: parseFloat(formCadastro.custoProduto.value.replace(/\./g, '').replace(',', '.')),
+                            valorVenda: parseFloat(formCadastro.valorVenda.value.replace(/\./g, '').replace(',', '.')),
+                            categoria: formCadastro.categoria.value,
+                        };
+                        produto.lucroUnidade = produto.valorVenda - produto.custo;
+                        const editId = formCadastro.editProductId.value;
+
+                        // --- VERIFICAÇÃO DE DUPLICIDADE ---
+                        try {
+                            const codigoQuery = getUserCollection("produtos").where("codigo", "==", produto.codigo).get();
+                            const nomeQuery = getUserCollection("produtos").where("nome", "==", produto.nome).get();
+
+                            const [codigoSnapshot, nomeSnapshot] = await Promise.all([codigoQuery, nomeQuery]);
+
+                            let codigoExists = false;
+                            codigoSnapshot.forEach(doc => {
+                                if (doc.id !== editId) {
+                                    codigoExists = true;
+                                }
+                            });
+
+                            let nomeExists = false;
+                            nomeSnapshot.forEach(doc => {
+                                if (doc.id !== editId) {
+                                    nomeExists = true;
+                                }
+                            });
+
+                            if (codigoExists) {
+                                showAppNotification('Já existe um produto cadastrado com este código.');
+                                return;
+                            }
+
+                            if (nomeExists) {
+                                showAppNotification('Já existe um produto cadastrado com este nome.');
+                                return;
+                            }
+                        } catch (error) {
+                            console.error("Erro ao verificar duplicados: ", error);
+                            showAppNotification("Ocorreu um erro ao verificar o produto. Tente novamente.");
+                            return;
+                        }
+                        // --- FIM DA VERIFICAÇÃO ---
+
+                        if (editId) {
+                            getUserCollection("produtos").doc(editId).update(produto)
+                                .then(() => {
+                                    showAppNotification("Produto atualizado com sucesso!", "Sucesso");
+                                    formCadastro.reset();
+                                    formCadastro.editProductId.value = '';
+                                    formCadastro.querySelector('button[type="submit"]').textContent = 'Cadastrar Produto';
+                                })
+                                .catch((error) => console.error("Erro ao atualizar: ", error));
+                        } else {
+                            produto.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                            getUserCollection("produtos").add(produto)
+                                .then(() => {
+                                    showAppNotification("Produto cadastrado com sucesso!", "Sucesso");
+                                    formCadastro.reset();
+                                })
+                                .catch((error) => console.error("Erro ao cadastrar: ", error));
+                        }
+                    });
+
+                    function carregarCategorias() {
+                        const unsub = getUserCollection("categorias").orderBy("nome").onSnapshot(snapshot => {
+                            todasAsCategorias = [];
+                            const selectCategoria = document.getElementById('categoria');
+                            const listaCategoriasUl = document.getElementById('lista-categorias');
+                            selectCategoria.innerHTML = "";
+                            listaCategoriasUl.innerHTML = "";
+                            if (snapshot.empty) {
+                                selectCategoria.innerHTML = '<option>Nenhuma categoria</option>';
+                                listaCategoriasUl.innerHTML = '<li>Nenhuma categoria cadastrada.</li>';
+                                return;
+                            }
+                            snapshot.forEach(doc => {
+                                const categoria = doc.data();
+                                todasAsCategorias.push({id: doc.id, ...categoria});
+                                const option = document.createElement('option');
+                                option.value = categoria.nome;
+                                option.textContent = categoria.nome;
+                                selectCategoria.appendChild(option);
+
+                                const li = document.createElement('li');
+                                li.innerHTML = `<span>${categoria.nome}</span>`;
+                                const deleteBtn = document.createElement('button');
+                                deleteBtn.className = 'btn-danger';
+                                deleteBtn.innerHTML = `<span class="material-icons-sharp">delete</span>`;
+                                deleteBtn.onclick = () => showAppConfirmation(`Tem certeza que deseja excluir a categoria "${categoria.nome}"?`, () => {
+                                    getUserCollection("categorias").doc(doc.id).delete();
+                                });
+                                const actionDiv = document.createElement('div');
+                                actionDiv.className = 'action-buttons';
+                                actionDiv.appendChild(deleteBtn);
+                                li.appendChild(actionDiv);
+                                listaCategoriasUl.appendChild(li);
+                            });
+                        });
+                        firestoreUnsubscribes.push(unsub);
+                    }
+
+                    // --- FUNÇÃO MODIFICADA PARA CARREGAR PRODUTOS ---
+                    function carregarProdutos() {
+                        const unsub = getUserCollection("produtos").onSnapshot((querySnapshot) => {
+                            let produtosTemp = [];
+                            querySnapshot.forEach((doc) => {
+                                produtosTemp.push({ id: doc.id, ...doc.data() });
+                            });
+
+                            todosOsProdutos = produtosTemp.sort((a, b) => {
+                                return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+                            });
+                            
+                            // Após carregar, aplica o filtro atual (se houver) e renderiza a tabela
+                            filtrarErenderizar();
+                        });
+                        firestoreUnsubscribes.push(unsub);
+                    }
+                    
+                    // --- NOVA FUNÇÃO PARA RENDERIZAR A TABELA COM PAGINAÇÃO ---
+                    function renderizarTabelaEstoque() {
+                        const tabelaCorpo = document.getElementById("tabela-estoque-body");
+                        const pageInfo = document.getElementById("page-info");
+                        const prevButton = document.getElementById("prev-page");
+                        const nextButton = document.getElementById("next-page");
+
+                        tabelaCorpo.innerHTML = '';
+                        const totalPages = Math.ceil(produtosFiltrados.length / itemsPerPage);
+                        
+                        // Garante que a página atual não seja maior que o total de páginas
+                        if (currentPage > totalPages) {
+                            currentPage = totalPages > 0 ? totalPages : 1;
+                        }
+
+                        const startIndex = (currentPage - 1) * itemsPerPage;
+                        const endIndex = startIndex + itemsPerPage;
+                        const paginatedItems = produtosFiltrados.slice(startIndex, endIndex);
+
+                        if (produtosFiltrados.length === 0) {
+                            tabelaCorpo.innerHTML = '<tr><td colspan="7">Nenhum produto encontrado.</td></tr>';
+                            pageInfo.textContent = 'Página 0 de 0';
+                            prevButton.disabled = true;
+                            nextButton.disabled = true;
+                            return;
+                        }
+
+                        const hoje = new Date();
+                        hoje.setHours(0, 0, 0, 0);
+
+                        paginatedItems.forEach((produto) => {
+                            const lucroUnidade = produto.lucroUnidade || (produto.valorVenda - produto.custo);
+                            const tr = document.createElement('tr');
+                            
+                            let avisoVencimento = '';
+                            if (produto.validade) {
+                                const dataValidade = new Date(produto.validade + 'T00:00:00');
+                                const diffDays = Math.ceil((dataValidade - hoje) / (1000 * 60 * 60 * 24));
+                                if (diffDays >= 0 && diffDays <= 30) {
+                                    tr.classList.add('vencimento-proximo');
+                                    avisoVencimento = `<span class="material-icons-sharp vencimento-aviso-icon" title="Vence em ${diffDays} dias!">warning</span>`;
+                                }
+                            }
+                            
+                            tr.innerHTML = `
+                                <td data-label="Código">${produto.codigo}</td>
+                                <td data-label="Produto">${produto.nome} ${avisoVencimento}</td>
+                                <td data-label="Qtd." class="${produto.quantidade < 3 ? 'low-stock-warning' : ''}">${produto.quantidade} ${produto.quantidade < 3 ? ' (Repor!)' : ''}</td>
+                                <td data-label="Custo">R$ ${produto.custo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                                <td data-label="Venda">R$ ${produto.valorVenda.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                                <td data-label="Lucro/Un.">R$ ${lucroUnidade.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            `;
+                            const actionsTd = document.createElement('td');
+                            actionsTd.setAttribute('data-label', 'Ações');
+                            actionsTd.className = 'action-buttons';
+                            const editBtn = document.createElement('button');
+                            editBtn.className = 'btn-warning';
+                            editBtn.innerHTML = `<span class="material-icons-sharp">edit</span>`;
+                            editBtn.onclick = () => editarProduto(produto.id);
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.className = 'btn-danger';
+                            deleteBtn.innerHTML = `<span class="material-icons-sharp">delete</span>`;
+                            deleteBtn.onclick = () => showAppConfirmation(`Tem certeza que deseja excluir o produto "${produto.nome}"?`, () => {
+                                getUserCollection("produtos").doc(produto.id).delete();
+                            });
+                            actionsTd.appendChild(editBtn);
+                            actionsTd.appendChild(deleteBtn);
+                            tr.appendChild(actionsTd);
+                            tabelaCorpo.appendChild(tr);
+                        });
+
+                        // Atualiza os controles de paginação
+                        pageInfo.textContent = `Página ${currentPage} de ${totalPages}`;
+                        prevButton.disabled = currentPage === 1;
+                        nextButton.disabled = currentPage === totalPages || totalPages === 0;
+                    }
+
+                    // --- NOVA FUNÇÃO PARA FILTRAR OS PRODUTOS ---
+                    function filtrarErenderizar() {
+                        const filtro = document.getElementById('searchEstoque').value.toUpperCase();
+                        
+                        if (!filtro) {
+                            produtosFiltrados = [...todosOsProdutos];
+                        } else {
+                            const hoje = new Date();
+                            hoje.setHours(0, 0, 0, 0);
+
+                            produtosFiltrados = todosOsProdutos.filter(produto => {
+                                // Verifica correspondência direta no código ou nome
+                                if (produto.codigo.toUpperCase().includes(filtro) || produto.nome.toUpperCase().includes(filtro)) {
+                                    return true;
+                                }
+                                
+                                // Verifica pela palavra-chave "VENCENDO"
+                                if ("VENCENDO".startsWith(filtro)) {
+                                    if (produto.validade) {
+                                        const dataValidade = new Date(produto.validade + 'T00:00:00');
+                                        const diffDays = Math.ceil((dataValidade - hoje) / (1000 * 60 * 60 * 24));
+                                        if (diffDays >= 0 && diffDays <= 30) return true;
+                                    }
+                                }
+
+                                // Verifica pela palavra-chave "REPOR"
+                                if ("REPOR".startsWith(filtro)) {
+                                    if (produto.quantidade < 3) return true;
+                                }
+                                
+                                return false;
+                            });
+                        }
+                        
+                        renderizarTabelaEstoque();
+                    }
+
+                    function editarProduto(id) {
+                        getUserCollection('produtos').doc(id).get().then(doc => {
+                            if (doc.exists) {
+                                const produto = doc.data();
+                                formCadastro.editProductId.value = id;
+                                formCadastro.codigoProduto.value = produto.codigo;
+                                formCadastro.nomeProduto.value = produto.nome;
+                                formCadastro.validade.value = produto.validade;
+                                formCadastro.quantidade.value = produto.quantidade;
+                                formCadastro.custoProduto.value = produto.custo.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                                formCadastro.valorVenda.value = produto.valorVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                                formCadastro.categoria.value = produto.categoria;
+                                formCadastro.querySelector('button[type="submit"]').textContent = 'Salvar Alterações';
+                                formCadastro.scrollIntoView({ behavior: 'smooth' });
+                            }
+                        });
+                    }
+
+                    // --- LISTENER DE BUSCA MODIFICADO ---
+                    document.getElementById('searchEstoque').addEventListener('keyup', () => {
+                        currentPage = 1; // Reseta para a primeira página a cada nova busca
+                        filtrarErenderizar();
+                    });
+
+                    // --- LISTENERS PARA OS BOTÕES DE PAGINAÇÃO ---
+                    document.getElementById('prev-page').addEventListener('click', () => {
+                        if (currentPage > 1) {
+                            currentPage--;
+                            renderizarTabelaEstoque();
+                        }
+                    });
+
+                    document.getElementById('next-page').addEventListener('click', () => {
+                        const totalPages = Math.ceil(produtosFiltrados.length / itemsPerPage);
+                        if (currentPage < totalPages) {
+                            currentPage++;
+                            renderizarTabelaEstoque();
+                        }
+                    });
+
+                    function exportEstoquePDF() {
+                        const { jsPDF } = window.jspdf;
+                        const doc = new jsPDF();
+                        const dataGeracao = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+                        doc.setFontSize(22);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text('Relatório de Estoque', 105, 20, { align: 'center' });
+                        doc.setFontSize(12);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(`Gerado em: ${dataGeracao}`, 105, 28, { align: 'center' });
+
+                        const produtosPorCategoria = {};
+                        todasAsCategorias.forEach(cat => {
+                            produtosPorCategoria[cat.nome] = [];
+                        });
+                        produtosPorCategoria['Sem Categoria'] = [];
+
+                        const produtosVencendo = [];
+                        const produtosRepor = [];
+                        const hoje = new Date();
+                        hoje.setHours(0, 0, 0, 0);
+
+                        todosOsProdutos.forEach(p => {
+                            if (p.categoria && produtosPorCategoria[p.categoria]) {
+                                produtosPorCategoria[p.categoria].push(p);
+                            } else {
+                                produtosPorCategoria['Sem Categoria'].push(p);
+                            }
+
+                            if (p.validade) {
+                                const dataValidade = new Date(p.validade + 'T00:00:00');
+                                const diffDays = Math.ceil((dataValidade - hoje) / (1000 * 60 * 60 * 24));
+                                if (diffDays >= 0 && diffDays <= 30) {
+                                    produtosVencendo.push(p);
+                                }
+                            }
+
+                            if (p.quantidade < 3) {
+                                produtosRepor.push(p);
+                            }
+                        });
+
+                        let finalY = 40;
+
+                        doc.setFontSize(16);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text('Estoque Atual por Categoria', 14, finalY);
+                        finalY += 5;
+
+                        for (const categoria in produtosPorCategoria) {
+                            if (produtosPorCategoria[categoria].length > 0) {
+                                const body = produtosPorCategoria[categoria].map(p => [
+                                    p.codigo, p.nome, p.quantidade, `R$ ${p.custo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, `R$ ${p.valorVenda.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`,
+                                    p.validade ? new Date(p.validade + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'
+                                ]);
+
+                                doc.autoTable({
+                                    startY: finalY,
+                                    head: [[{ content: categoria, colSpan: 6, styles: { fillColor: [0, 150, 136], textColor: [255,255,255], fontStyle: 'bold' } }]],
+                                    body: [
+                                        ['Código', 'Produto', 'Qtd.', 'Custo', 'Venda', 'Validade'],
+                                        ...body
+                                    ],
+                                    theme: 'grid',
+                                    didParseCell: (data) => {
+                                        if (data.row.index === 1 && data.section === 'body') {
+                                            data.cell.styles.fillColor = '#f0f0f0';
+                                            data.cell.styles.fontStyle = 'bold';
+                                        }
+                                    }
+                                });
+                                finalY = doc.autoTable.previous.finalY + 5;
+                            }
+                        }
+                        
+                        if (produtosVencendo.length > 0 || produtosRepor.length > 0) {
+                            doc.addPage();
+                            finalY = 20;
+                        }
+
+                        if (produtosVencendo.length > 0) {
+                            doc.setFontSize(16); doc.text('Produtos Vencendo em Breve (Próximos 30 dias)', 14, finalY);
+                            doc.autoTable({
+                                startY: finalY + 5, head: [['Produto', 'Qtd.', 'Data de Validade']],
+                                body: produtosVencendo.map(p => [p.nome, p.quantidade, new Date(p.validade + 'T00:00:00').toLocaleDateString('pt-BR')]),
+                                theme: 'striped', headStyles: { fillColor: [255, 187, 85] }
+                            });
+                            finalY = doc.autoTable.previous.finalY + 15;
+                        }
+
+                        if (produtosRepor.length > 0) {
+                            doc.setFontSize(16); doc.text('Produtos para Repor (Qtd. < 3)', 14, finalY);
+                            doc.autoTable({
+                                startY: finalY + 5, head: [['Produto', 'Quantidade Atual']],
+                                body: produtosRepor.map(p => [p.nome, p.quantidade]),
+                                theme: 'striped', headStyles: { fillColor: [255, 119, 130] }
+                            });
+                        }
+
+                        const pageCount = doc.internal.getNumberOfPages();
+                        for(let i = 1; i <= pageCount; i++) {
+                            doc.setPage(i);
+                            doc.setFontSize(10);
+                            doc.text(`Página ${i} de ${pageCount}`, 200, 285, { align: 'right' });
+                        }
+
+                        doc.save(`Relatorio_Estoque_Stolinx_${new Date().toISOString().slice(0,10)}.pdf`);
+                    }
+
+                    // --- INICIALIZAÇÃO ---
+                    document.getElementById('export-estoque-pdf-btn').addEventListener('click', exportEstoquePDF);
+                    carregarCategorias();
+                    carregarProdutos(); // Esta função agora cuida da renderização inicial
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+

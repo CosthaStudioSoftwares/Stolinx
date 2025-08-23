@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stolinx - Bem-vindo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Sharp" rel="stylesheet">
+    
+    <style>
+        /* --- Cores e Variáveis Globais --- */
+        :root {
+            --color-primary: #009688; /* Nova Cor Principal (Teal) */
+            --color-danger: #ff7782;
+            --color-success: #41f1b6;
+            --color-white: #fff;
+            --color-info-dark: #7d8da1;
+            --color-info-light: #dce1eb;
+            --color-dark: #363949;
+            --color-light: rgba(132, 139, 200, 0.18);
+            --color-primary-variant: #00796B; /* Variante Mais Escura do Teal */
+            --color-dark-variant: #677483;
+            --color-background: #f6f6f9;
+            --border-radius-1: 0.4rem;
+            --border-radius-2: 0.8rem;
+        }
+
+        /* --- Reset e Estilos Base --- */
+        * {
+            margin: 0;
+            padding: 0;
+            outline: 0;
+            appearance: none;
+            border: 0;
+            text-decoration: none;
+            list-style: none;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--color-background);
+            color: var(--color-dark);
+            overflow: hidden; /* Previne scroll na página de login */
+        }
+
+        /* --- Layout Principal --- */
+        .auth-main-container {
+            display: grid;
+            grid-template-columns: 45% 55%;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* --- Painel Esquerdo (Branding) --- */
+        .left-panel {
+            background: linear-gradient(-45deg, var(--color-primary), var(--color-primary-variant));
+            color: var(--color-white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            text-align: center;
+        }
+
+        .branding-content h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            letter-spacing: 1px;
+        }
+
+        .branding-content h1 .danger {
+            color: var(--color-danger);
+            text-shadow: 1px 1px 5px rgba(0,0,0,0.2);
+        }
+
+        .branding-content p {
+            font-size: 1.1rem;
+            font-weight: 300;
+            max-width: 400px;
+        }
+
+        /* --- Painel Direito (Formulário) --- */
+        .right-panel {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        #auth-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        .auth-form-wrapper {
+            width: 100%;
+            max-width: 400px;
+            background: var(--color-white);
+            padding: 2.5rem;
+            border-radius: var(--border-radius-2);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .auth-form-wrapper h1 {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .auth-form-wrapper h1 .danger {
+            color: var(--color-danger);
+        }
+
+        .auth-form-wrapper p {
+            text-align: center;
+            color: var(--color-info-dark);
+            margin-bottom: 2.5rem;
+        }
+
+        /* --- Estilos dos Formulários --- */
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 14px;
+            border-radius: var(--border-radius-1);
+            background: var(--color-background);
+            border: 1px solid var(--color-info-light);
+            font-family: 'Poppins', sans-serif;
+            color: var(--color-dark);
+            font-size: 0.95rem;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .input-group input:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(0, 150, 136, 0.25); /* Sombra de foco ajustada para a nova cor */
+        }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            border-radius: var(--border-radius-1);
+            background: var(--color-primary);
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            font-family: 'Poppins', sans-serif;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        button[type="submit"]:hover {
+            background: var(--color-primary-variant);
+            transform: translateY(-2px);
+        }
+
+        .auth-toggle-link {
+            display: block;
+            text-align: center;
+            margin-top: 1.5rem;
+            color: var(--color-primary);
+            cursor: pointer;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+        
+        .auth-toggle-link:hover {
+            text-decoration: underline;
+            color: var(--color-primary-variant);
+        }
+
+        #forgot-password {
+            margin-top: 1rem;
+            margin-bottom: -1rem;
+            font-size: 0.85rem;
+            color: var(--color-dark-variant);
+        }
+
+        #auth-message {
+            text-align: center;
+            padding: 12px;
+            border-radius: var(--border-radius-1);
+            margin-bottom: 1.5rem;
+            display: none;
+            font-weight: 500;
+            color: var(--color-white);
+        }
+
+        #auth-message.success { background-color: var(--color-success); }
+        #auth-message.error { background-color: var(--color-danger); }
+
+        /* --- Animação de Troca de Formulário --- */
+        #login-form, #register-form {
+            transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
+            transform-origin: center;
+        }
+        
+        #register-form {
+            display: none;
+            opacity: 0;
+            transform: scale(0.95);
+        }
+
+        /* --- Responsividade --- */
+        @media (max-width: 992px) {
+            .auth-main-container {
+                grid-template-columns: 40% 60%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .auth-main-container {
+                grid-template-columns: 1fr;
+            }
+            .left-panel {
+                display: none; /* Oculta o painel de branding em telas menores */
+            }
+            .right-panel {
+                background: var(--color-background);
+            }
+            .auth-form-wrapper {
+                box-shadow: none;
+                padding: 1.5rem;
+            }
+        }
+    </style>
+
+    <!-- Adicione estas linhas dentro da tag <head> -->
+
+<!-- Cor da barra de status em navegadores mobile -->
+<meta name="theme-color" content="#009688">
+
+<!-- Link para o manifest.json -->
+<link rel="manifest" href="manifest.json">
+
+<!-- Ícone para dispositivos Apple -->
+<link rel="apple-touch-icon" href="icon-192x192.png">
+
+<!-- Script para registrar o Service Worker -->
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/service-worker.js')
+                .then(registration => {
+                    console.log('Service Worker registrado com sucesso:', registration);
+                })
+                .catch(error => {
+                    console.log('Falha ao registrar o Service Worker:', error);
+                });
+        });
+    }
+</script>
+
+</head>
+<body>
+    <div class="auth-main-container">
+        <!-- Painel Esquerdo com a marca -->
+        <div class="left-panel">
+            <div class="branding-content">
+                <h1>Bem-vindo ao STOL<span class="danger">INX</span></h1>
+                <p>Gerencie seu estoque de forma inteligente e eficiente, onde quer que você esteja.</p>
+            </div>
+        </div>
+
+        <!-- Painel Direito com os formulários -->
+        <div class="right-panel">
+            <div id="auth-container">
+                <div class="auth-form-wrapper">
+                    <div id="auth-message"></div>
+
+                    <!-- Formulário de Login -->
+                    <form id="login-form">
+                        <h1>Acesse sua Conta</h1>
+                        <p>Bem-vindo de volta!</p>
+                        <div class="input-group">
+                            <input type="email" id="login-email" placeholder="Seu e-mail" required>
+                        </div>
+                        <div class="input-group">
+                            <input type="password" id="login-password" placeholder="Sua senha" required>
+                        </div>
+                        <button type="submit">Entrar</button>
+                        <a class="auth-toggle-link" id="forgot-password">Esqueceu a senha?</a>
+                        <a class="auth-toggle-link" id="show-register">Não tem uma conta? Cadastre-se</a>
+                    </form>
+        
+                    <!-- Formulário de Cadastro -->
+                    <form id="register-form">
+                        <h1>Crie sua Conta</h1>
+                        <p>É rápido e fácil.</p>
+                        <div class="input-group">
+                            <input type="email" id="register-email" placeholder="Seu e-mail" required>
+                        </div>
+                        <div class="input-group">
+                            <input type="password" id="register-password" placeholder="Crie uma senha" required>
+                        </div>
+                        <button type="submit">Cadastrar</button>
+                        <a class="auth-toggle-link" id="show-login">Já tem uma conta? Faça login</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAv54tgJ5oYrwTSNXpB2rCGjNbhJhe2CoM",
+            authDomain: "stolinx-d6e26.firebaseapp.com",
+            projectId: "stolinx-d6e26",
+            storageBucket: "stolinx-d6e26.appspot.com",
+            messagingSenderId: "715535971682",
+            appId: "1:715535971682:web:66620d1590ae3e4ba6a83b"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // --- DOM Elements ---
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const authMessage = document.getElementById('auth-message');
+
+        // --- UI Functions ---
+        function showAuthMessage(message, type = 'error') {
+            authMessage.textContent = message;
+            authMessage.className = type;
+            authMessage.style.display = 'block';
+        }
+
+        // Animação de troca de formulário
+        document.getElementById('show-register').addEventListener('click', () => {
+            loginForm.style.opacity = '0';
+            loginForm.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                loginForm.style.display = 'none';
+                registerForm.style.display = 'block';
+                setTimeout(() => {
+                    registerForm.style.opacity = '1';
+                    registerForm.style.transform = 'scale(1)';
+                }, 50);
+                authMessage.style.display = 'none';
+            }, 400);
+        });
+
+        document.getElementById('show-login').addEventListener('click', () => {
+            registerForm.style.opacity = '0';
+            registerForm.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                registerForm.style.display = 'none';
+                loginForm.style.display = 'block';
+                 setTimeout(() => {
+                    loginForm.style.opacity = '1';
+                    loginForm.style.transform = 'scale(1)';
+                }, 50);
+                authMessage.style.display = 'none';
+            }, 400);
+        });
+
+        // --- Authentication Logic ---
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            if (!email || !password) {
+                showAuthMessage('Por favor, preencha todos os campos.');
+                return;
+            }
+
+            auth.signInWithEmailAndPassword(email, password)
+                .catch(error => {
+                    console.error("Erro de Login:", error);
+                    showAuthMessage("E-mail ou senha incorretos. Se não tiver uma conta, clique em 'Cadastre-se'.");
+                });
+        });
+
+        registerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            if (!email || !password) {
+                showAuthMessage('Por favor, preencha todos os campos.');
+                return;
+            }
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(userCredential => {
+                    userCredential.user.sendEmailVerification();
+                    return db.collection('users').doc(userCredential.user.uid).set({
+                        email: userCredential.user.email,
+                        active: false,
+                        expiresAt: null
+                    });
+                })
+                .then(() => {
+                    showAuthMessage('Cadastro realizado! Verifique seu e-mail para ativar a conta e depois faça o login.', 'success');
+                    setTimeout(() => {
+                        document.getElementById('show-login').click();
+                    }, 4000);
+                })
+                .catch(error => {
+                    // ===================================================================
+                    // INÍCIO DA ALTERAÇÃO: Lógica para e-mail já cadastrado
+                    // ===================================================================
+                    if (error.code === 'auth/email-already-in-use') {
+                        // Pega o e-mail que o usuário tentou cadastrar
+                        const existingEmail = document.getElementById('register-email').value;
+                        
+                        // Preenche o campo de e-mail no formulário de login
+                        document.getElementById('login-email').value = existingEmail;
+                        
+                        // Simula o clique para trocar para a tela de login
+                        document.getElementById('show-login').click();
+                        
+                        // Aguarda a animação da troca de tela e exibe a mensagem
+                        setTimeout(() => {
+                            showAuthMessage('Este e-mail já está cadastrado. Por favor, insira sua senha para entrar.');
+                        }, 500); // 500ms é um bom tempo para a transição
+
+                    } else {
+                        // Mantém a lógica para outros erros de cadastro
+                        let message = 'Ocorreu um erro ao criar a conta.';
+                        if (error.code === 'auth/weak-password') {
+                            message = 'A senha deve ter pelo menos 6 caracteres.';
+                        }
+                        showAuthMessage(message);
+                    }
+                    // ===================================================================
+                    // FIM DA ALTERAÇÃO
+                    // ===================================================================
+                });
+        });
+        
+        // --- Forgot Password Logic ---
+        document.getElementById('forgot-password').addEventListener('click', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            if (!email) {
+                showAuthMessage('Por favor, digite seu e-mail no campo acima para redefinir a senha.');
+                return;
+            }
+
+            auth.sendPasswordResetEmail(email)
+                .then(() => {
+                    showAuthMessage('E-mail de redefinição de senha enviado! Verifique sua caixa de entrada.', 'success');
+                })
+                .catch((error) => {
+                    let message = 'Ocorreu um erro ao enviar o e-mail.';
+                    if (error.code === 'auth/user-not-found') {
+                        message = 'Nenhuma conta encontrada com este e-mail.';
+                    }
+                    showAuthMessage(message);
+                });
+        });
+
+
+        // --- Auth State Observer ---
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                if (!user.emailVerified) {
+                    showAuthMessage('Por favor, verifique seu e-mail para continuar. Olhe sua caixa de entrada ou spam.');
+                    auth.signOut();
+                    return;
+                }
+
+                const userRef = db.collection('users').doc(user.uid);
+                userRef.get().then(doc => {
+                    if (doc.exists) {
+                        const userData = doc.data();
+                        const now = new Date();
+                        if (userData.active && userData.expiresAt && userData.expiresAt.toDate() > now) {
+                            window.location.href = 'dashboard.html';
+                        } else {
+                            window.location.href = 'ativacao.html';
+                        }
+                    } else {
+                         userRef.set({
+                            email: user.email,
+                            active: false,
+                            expiresAt: null
+                        }).then(() => {
+                            window.location.href = 'ativacao.html';
+                        });
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
+
+
+
+
