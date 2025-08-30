@@ -29,19 +29,36 @@
         h1, h2 { text-align: center; color: var(--color-primary); margin-bottom: 0.5rem; }
         h1 .danger { color: var(--color-danger); }
         h2 { color: var(--color-dark); text-align: left; margin-bottom: 1.5rem; }
-        .categoria-bloco { margin-bottom: 2rem; }
-        .categoria-titulo { font-size: 1.4rem; font-weight: 600; border-bottom: 2px solid var(--color-primary-variant); padding-bottom: 0.5rem; margin-bottom: 1rem; }
-        .produto-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--color-info-light); }
+        
+        /* ESTILOS PARA O ACCORDION DE CATEGORIAS */
+        .categoria-bloco { margin-bottom: 1rem; border: 1px solid var(--color-info-light); border-radius: var(--border-radius-1); overflow: hidden; }
+        .categoria-titulo {
+            font-size: 1.4rem; font-weight: 600; padding: 1rem; margin: 0;
+            cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+            background: var(--color-white); transition: background-color 0.3s;
+        }
+        .categoria-titulo:hover { background-color: var(--color-background); }
+        .categoria-titulo .material-icons-sharp { transition: transform 0.3s ease; }
+        .categoria-titulo.active .material-icons-sharp { transform: rotate(180deg); }
+        .produtos-container { display: none; padding: 0 1rem 1rem 1rem; background: var(--color-white); }
+        
+        .produto-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-top: 1px solid var(--color-info-light); }
         .produto-info { flex-grow: 1; }
         .produto-info h3 { font-size: 1.1rem; font-weight: 500; }
         .produto-info p { color: var(--color-info-dark); }
         .produto-qtd input { width: 70px; text-align: center; padding: 8px; border-radius: var(--border-radius-1); background: var(--color-info-light); font-size: 1rem; }
+        .btn-ver-mais {
+            width: 100%; text-align: center; background: none; color: var(--color-primary);
+            padding: 0.8rem; margin-top: 1rem; font-weight: 600; cursor: pointer; border-radius: var(--border-radius-1);
+        }
+        .btn-ver-mais:hover { background: var(--color-light); }
+        
         .input-group { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
         label { font-weight: 500; }
         input[type="text"], input[type="tel"], textarea, select { width: 100%; padding: 12px; border-radius: var(--border-radius-1); background: var(--color-info-light); font-family: 'Poppins', sans-serif; font-size: 0.9rem; }
         textarea { resize: vertical; min-height: 80px; }
-        button { width: 100%; padding: 14px; font-size: 1.1rem; font-weight: 600; border-radius: var(--border-radius-1); background: var(--color-success); color: #fff; cursor: pointer; transition: opacity 0.3s; }
-        button:hover { opacity: 0.8; }
+        button[type="submit"] { width: 100%; padding: 14px; font-size: 1.1rem; font-weight: 600; border-radius: var(--border-radius-1); background: var(--color-success); color: #fff; cursor: pointer; transition: opacity 0.3s; }
+        button[type="submit"]:hover { opacity: 0.8; }
         .notification { padding: 1rem; margin: 1rem 0; border-radius: var(--border-radius-1); text-align: center; display: none; }
         .notification.success { background: var(--color-success); color: var(--color-white); }
         .notification.error { background: var(--color-danger); color: var(--color-white); }
@@ -60,7 +77,7 @@
             <div class="card">
                 <h2>Nossos Produtos</h2>
                 <div id="lista-produtos-categorias">
-                    <p>Carregando produtos...</p>
+                    <p>Carregando categorias...</p>
                 </div>
             </div>
 
@@ -108,15 +125,62 @@
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
             const userId = params.get('user');
-            const listaProdutosDiv = document.getElementById('lista-produtos-categorias');
+            const categoriasContainer = document.getElementById('lista-produtos-categorias');
             const formPedido = document.getElementById('form-pedido-cliente');
             const notificationArea = document.getElementById('notification-area');
+            const PRODUTOS_POR_PAGINA = 5;
 
             if (!userId) {
-                listaProdutosDiv.innerHTML = '<p style="color: var(--color-danger);">Link inválido. Não foi possível carregar os produtos.</p>';
+                categoriasContainer.innerHTML = '<p style="color: var(--color-danger);">Link inválido. Não foi possível carregar os produtos.</p>';
                 return;
             }
 
+            let produtosPorCategoria = {};
+
+            // MOSTRA MAIS PRODUTOS DENTRO DE UMA CATEGORIA
+            function renderizarMaisProdutos(categoriaDiv) {
+                const produtosContainer = categoriaDiv.querySelector('.produtos-container');
+                const categoriaNome = categoriaDiv.dataset.categoriaNome;
+                const produtos = produtosPorCategoria[categoriaNome];
+                let mostrados = parseInt(produtosContainer.dataset.mostrados || '0');
+                
+                // Remove o botão "Ver Mais" antigo, se existir
+                const btnAntigo = produtosContainer.querySelector('.btn-ver-mais');
+                if (btnAntigo) btnAntigo.remove();
+
+                const proximosProdutos = produtos.slice(mostrados, mostrados + PRODUTOS_POR_PAGINA);
+
+                proximosProdutos.forEach(p => {
+                    const produtoDiv = document.createElement('div');
+                    produtoDiv.className = 'produto-item';
+                    produtoDiv.innerHTML = `
+                        <div class="produto-info">
+                            <h3>${p.nome}</h3>
+                            <p>R$ ${p.valorVenda.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+                        </div>
+                        <div class="produto-qtd">
+                            <input type="number" min="0" placeholder="0" class="input-qtd-produto" 
+                                   data-id="${p.id}" data-nome="${p.nome}" data-preco="${p.valorVenda}" data-custo="${p.custo}">
+                        </div>
+                    `;
+                    produtosContainer.appendChild(produtoDiv);
+                });
+
+                mostrados += proximosProdutos.length;
+                produtosContainer.dataset.mostrados = mostrados;
+
+                // Adiciona um novo botão "Ver Mais" se ainda houver produtos
+                if (mostrados < produtos.length) {
+                    const btnVerMais = document.createElement('button');
+                    btnVerMais.type = 'button';
+                    btnVerMais.className = 'btn-ver-mais';
+                    btnVerMais.textContent = `Ver Mais (${produtos.length - mostrados} restantes)`;
+                    btnVerMais.onclick = () => renderizarMaisProdutos(categoriaDiv);
+                    produtosContainer.appendChild(btnVerMais);
+                }
+            }
+
+            // CARREGA DADOS INICIAIS (CATEGORIAS E PRODUTOS)
             async function carregarDados() {
                 try {
                     const categoriasPromise = db.collection('users').doc(userId).collection('categorias').orderBy('nome').get();
@@ -124,49 +188,57 @@
                     
                     const [categoriasSnapshot, produtosSnapshot] = await Promise.all([categoriasPromise, produtosPromise]);
 
-                    const categorias = {};
-                    categoriasSnapshot.forEach(doc => {
-                        categorias[doc.data().nome] = [];
-                    });
-                    categorias['Sem Categoria'] = [];
-
                     produtosSnapshot.forEach(doc => {
                         const produto = { id: doc.id, ...doc.data() };
-                        if (produto.categoria && categorias[produto.categoria]) {
-                            categorias[produto.categoria].push(produto);
-                        } else {
-                            categorias['Sem Categoria'].push(produto);
+                        const nomeCategoria = produto.categoria || 'Sem Categoria';
+                        if (!produtosPorCategoria[nomeCategoria]) {
+                            produtosPorCategoria[nomeCategoria] = [];
+                        }
+                        produtosPorCategoria[nomeCategoria].push(produto);
+                    });
+
+                    categoriasContainer.innerHTML = '';
+                    
+                    const nomesCategorias = Object.keys(produtosPorCategoria).sort();
+
+                    nomesCategorias.forEach(nomeCategoria => {
+                        if (produtosPorCategoria[nomeCategoria].length > 0) {
+                            const categoriaDiv = document.createElement('div');
+                            categoriaDiv.className = 'categoria-bloco';
+                            categoriaDiv.dataset.categoriaNome = nomeCategoria;
+
+                            categoriaDiv.innerHTML = `
+                                <h3 class="categoria-titulo">
+                                    ${nomeCategoria}
+                                    <span class="material-icons-sharp">expand_more</span>
+                                </h3>
+                                <div class="produtos-container" style="display: none;"></div>
+                            `;
+                            
+                            const titulo = categoriaDiv.querySelector('.categoria-titulo');
+                            const produtosContainer = categoriaDiv.querySelector('.produtos-container');
+
+                            titulo.addEventListener('click', () => {
+                                const estaAberto = produtosContainer.style.display === 'block';
+                                if (!estaAberto) {
+                                    // Se for o primeiro clique, carrega os produtos
+                                    if (!produtosContainer.hasChildNodes()) {
+                                        renderizarMaisProdutos(categoriaDiv);
+                                    }
+                                    produtosContainer.style.display = 'block';
+                                    titulo.classList.add('active');
+                                } else {
+                                    produtosContainer.style.display = 'none';
+                                    titulo.classList.remove('active');
+                                }
+                            });
+                            categoriasContainer.appendChild(categoriaDiv);
                         }
                     });
 
-                    listaProdutosDiv.innerHTML = '';
-                    for (const nomeCategoria in categorias) {
-                        if (categorias[nomeCategoria].length > 0) {
-                            const categoriaDiv = document.createElement('div');
-                            categoriaDiv.className = 'categoria-bloco';
-                            categoriaDiv.innerHTML = `<h3 class="categoria-titulo">${nomeCategoria}</h3>`;
-                            
-                            categorias[nomeCategoria].forEach(p => {
-                                const produtoHTML = `
-                                    <div class="produto-item">
-                                        <div class="produto-info">
-                                            <h3>${p.nome}</h3>
-                                            <p>R$ ${p.valorVenda.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
-                                        </div>
-                                        <div class="produto-qtd">
-                                            <input type="number" min="0" placeholder="0" class="input-qtd-produto" 
-                                                   data-id="${p.id}" data-nome="${p.nome}" data-preco="${p.valorVenda}" data-custo="${p.custo}">
-                                        </div>
-                                    </div>
-                                `;
-                                categoriaDiv.innerHTML += produtoHTML;
-                            });
-                            listaProdutosDiv.appendChild(categoriaDiv);
-                        }
-                    }
                 } catch (error) {
                     console.error("Erro ao carregar dados:", error);
-                    listaProdutosDiv.innerHTML = '<p style="color: var(--color-danger);">Ocorreu um erro ao carregar os produtos. Tente novamente mais tarde.</p>';
+                    categoriasContainer.innerHTML = '<p style="color: var(--color-danger);">Ocorreu um erro ao carregar os produtos. Tente novamente mais tarde.</p>';
                 }
             }
 
