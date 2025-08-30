@@ -46,6 +46,40 @@
             font-size: 0.875rem;
             color: var(--color-dark-variant);
         }
+        /* Estilos para o interruptor de desconto */
+        .desconto-toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .toggle-switch {
+            display: flex;
+            border: 1px solid var(--color-light);
+            border-radius: var(--border-radius-1);
+            overflow: hidden;
+        }
+        .toggle-btn {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            background-color: transparent;
+            color: var(--color-dark-variant);
+            border: none;
+            font-weight: 500;
+            transition: all 300ms ease;
+        }
+        .toggle-btn.active {
+            background-color: var(--color-primary);
+            color: var(--color-white);
+        }
+        .total-section .desconto-group {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
     </style>
 
     <!-- Adicione estas linhas dentro da tag <head> -->
@@ -112,12 +146,12 @@
 
         <main>
              <div class="top-bar">
-                   <div class="top-bar-left">
-                       <button id="menu-btn">
-                           <span class="material-icons-sharp">menu</span>
-                       </button>
-                       <h1 id="mobile-page-title">Vendas</h1>
-                   </div>
+                    <div class="top-bar-left">
+                        <button id="menu-btn">
+                            <span class="material-icons-sharp">menu</span>
+                        </button>
+                        <h1 id="mobile-page-title">Vendas</h1>
+                    </div>
              </div>
              
              <!-- NOVO CARD DE PEDIDOS PENDENTES -->
@@ -151,7 +185,7 @@
                                      <option value="">Cadastre um item no estoque primeiro</option>
                                  </select>
                                  <input type="number" id="quantidadeVenda" value="1" min="1" style="max-width: 100px;">
-                               </div>
+                             </div>
                         </div>
 
                         <div class="input-group" style="grid-column: 1 / -1;">
@@ -178,11 +212,20 @@
                     <!-- SEÇÃO DE TOTAIS MODIFICADA -->
                     <div class="total-section">
                         <h3>Subtotal: <span id="subtotal-venda">R$ 0,00</span></h3>
-                        <div class="desconto-group">
+                        
+                        <div class="desconto-toggle-container">
+                            <label style="font-weight: 500;">Tipo de Desconto:</label>
+                            <div class="toggle-switch">
+                                <button id="tipo-desconto-rs" class="toggle-btn active">R$</button>
+                                <button id="tipo-desconto-porcento" class="toggle-btn">%</button>
+                            </div>
+                        </div>
+
+                        <div id="desconto-rs-container" class="desconto-group">
                             <label for="descontoVenda">Desconto (R$):</label>
                             <input type="text" class="currency" id="descontoVenda" placeholder="0,00">
                         </div>
-                        <div class="desconto-group">
+                        <div id="desconto-porcento-container" class="desconto-group" style="display: none;">
                             <label for="descontoPorcentagem">Desconto (%):</label>
                             <input type="number" id="descontoPorcentagem" placeholder="0">
                         </div>
@@ -289,6 +332,13 @@
                     const descontoManualInput = document.getElementById('descontoVenda');
                     const descontoPercentInput = document.getElementById('descontoPorcentagem');
 
+                    // Novos elementos do interruptor de desconto
+                    const tipoDescontoRSBtn = document.getElementById('tipo-desconto-rs');
+                    const tipoDescontoPorcentoBtn = document.getElementById('tipo-desconto-porcento');
+                    const descontoRSContainer = document.getElementById('desconto-rs-container');
+                    const descontoPorcentoContainer = document.getElementById('desconto-porcento-container');
+
+
                     document.querySelectorAll('.currency').forEach(input => {
                         input.addEventListener('input', () => formatCurrency(input));
                     });
@@ -354,19 +404,17 @@
                         
                         document.getElementById('subtotal-venda').textContent = `R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
                         
-                        // Lógica de Desconto
-                        let descontoValor = parseFloat(descontoManualInput.value.replace(/\./g, '').replace(',', '.')) || 0;
-                        let descontoPercent = parseFloat(descontoPercentInput.value) || 0;
+                        // Lógica de Desconto Refatorada
                         let descontoFinal = 0;
-
-                        if (descontoPercent > 0) {
-                            descontoFinal = subtotal * (descontoPercent / 100);
-                            // Atualiza o campo de valor para refletir a porcentagem, mas não dispara o evento de input
-                            const valorFormatado = (descontoFinal).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-                            if (descontoManualInput.value !== valorFormatado) {
-                                descontoManualInput.value = valorFormatado;
+                        
+                        // Verifica qual tipo de desconto está ativo
+                        if (tipoDescontoPorcentoBtn.classList.contains('active')) {
+                            const descontoPercent = parseFloat(descontoPercentInput.value) || 0;
+                            if (descontoPercent > 0) {
+                                descontoFinal = subtotal * (descontoPercent / 100);
                             }
                         } else {
+                            const descontoValor = parseFloat(descontoManualInput.value.replace(/\./g, '').replace(',', '.')) || 0;
                             descontoFinal = descontoValor;
                         }
 
@@ -374,13 +422,30 @@
                         document.getElementById('total-venda').textContent = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
                     }
 
-                    descontoManualInput.addEventListener('input', () => {
-                        descontoPercentInput.value = ''; // Limpa o campo de porcentagem
+                    // Listeners simplificados para os inputs
+                    descontoManualInput.addEventListener('input', atualizarTabelaOrcamento);
+                    descontoPercentInput.addEventListener('input', atualizarTabelaOrcamento);
+
+                    // Listeners para o interruptor
+                    tipoDescontoRSBtn.addEventListener('click', () => {
+                        tipoDescontoRSBtn.classList.add('active');
+                        tipoDescontoPorcentoBtn.classList.remove('active');
+                        
+                        descontoRSContainer.style.display = 'grid';
+                        descontoPorcentoContainer.style.display = 'none';
+
+                        descontoPercentInput.value = '';
                         atualizarTabelaOrcamento();
                     });
 
-                    descontoPercentInput.addEventListener('input', () => {
-                         // Não precisa limpar o manual, a lógica em atualizarTabelaOrcamento já recalcula
+                    tipoDescontoPorcentoBtn.addEventListener('click', () => {
+                        tipoDescontoPorcentoBtn.classList.add('active');
+                        tipoDescontoRSBtn.classList.remove('active');
+                        
+                        descontoPorcentoContainer.style.display = 'grid';
+                        descontoRSContainer.style.display = 'none';
+
+                        descontoManualInput.value = '';
                         atualizarTabelaOrcamento();
                     });
 
@@ -452,7 +517,7 @@
                     
                     // FUNÇÃO CORRIGIDA: Compartilhar link de pedido
                     document.getElementById('share-pedido-link-btn').addEventListener('click', () => {
-                        // AQUI ESTÁ A CORREÇÃO: Adicionando o nome do repositório        
+                        // AQUI ESTÁ A CORREÇÃO: Adicionando o nome do repositório    
                         const url = `${window.location.origin}/pedido.html?user=${currentUserId}`;
                         const mensagem = `Olá! 😊\n\nEstou enviando o link da nossa loja para você fazer seu pedido de forma fácil e rápida. Basta escolher os produtos e as quantidades que desejar!\n\nClique aqui: ${url}\n\nQualquer dúvida, é só me chamar!`;
                         window.open(`https://wa.me/?text=${encodeURIComponent(mensagem)}`, '_blank');
@@ -585,8 +650,8 @@
                         if (dataFim) {
                              const fim = new Date(dataFim + 'T23:59:59');
                              vendasTemp = vendasTemp.filter(v => {
-                                if (!v.data || !v.data.toDate) return false;
-                                return v.data.toDate() <= fim;
+                                 if (!v.data || !v.data.toDate) return false;
+                                 return v.data.toDate() <= fim;
                             });
                         }
 
