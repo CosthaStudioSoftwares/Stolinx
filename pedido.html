@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stolinx - Faça seu Pedido</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Sharp" rel="stylesheet">
+    <style>
+        :root {
+            --color-primary: #009688;
+            --color-danger: #ff7782;
+            --color-success: #41f1b6;
+            --color-white: #fff;
+            --color-info-dark: #7d8da1;
+            --color-info-light: #dce1eb;
+            --color-dark: #363949;
+            --color-primary-variant: #00796B;
+            --color-background: #f6f6f9;
+            --border-radius-1: 0.4rem;
+            --border-radius-2: 0.8rem;
+            --card-padding: 1.8rem;
+            --box-shadow: 0 1rem 2rem rgba(132, 139, 200, 0.18);
+        }
+        * { margin: 0; padding: 0; outline: 0; appearance: none; border: 0; text-decoration: none; list-style: none; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; background: var(--color-background); color: var(--color-dark); font-size: 0.9rem; }
+        .container { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+        .card { background: var(--color-white); padding: var(--card-padding); border-radius: var(--border-radius-2); box-shadow: var(--box-shadow); margin-bottom: 2rem; }
+        h1, h2 { text-align: center; color: var(--color-primary); margin-bottom: 0.5rem; }
+        h1 .danger { color: var(--color-danger); }
+        h2 { color: var(--color-dark); text-align: left; margin-bottom: 1.5rem; }
+        .categoria-bloco { margin-bottom: 2rem; }
+        .categoria-titulo { font-size: 1.4rem; font-weight: 600; border-bottom: 2px solid var(--color-primary-variant); padding-bottom: 0.5rem; margin-bottom: 1rem; }
+        .produto-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--color-info-light); }
+        .produto-info { flex-grow: 1; }
+        .produto-info h3 { font-size: 1.1rem; font-weight: 500; }
+        .produto-info p { color: var(--color-info-dark); }
+        .produto-qtd input { width: 70px; text-align: center; padding: 8px; border-radius: var(--border-radius-1); background: var(--color-info-light); font-size: 1rem; }
+        .input-group { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
+        label { font-weight: 500; }
+        input[type="text"], input[type="tel"], textarea, select { width: 100%; padding: 12px; border-radius: var(--border-radius-1); background: var(--color-info-light); font-family: 'Poppins', sans-serif; font-size: 0.9rem; }
+        textarea { resize: vertical; min-height: 80px; }
+        button { width: 100%; padding: 14px; font-size: 1.1rem; font-weight: 600; border-radius: var(--border-radius-1); background: var(--color-success); color: #fff; cursor: pointer; transition: opacity 0.3s; }
+        button:hover { opacity: 0.8; }
+        .notification { padding: 1rem; margin: 1rem 0; border-radius: var(--border-radius-1); text-align: center; display: none; }
+        .notification.success { background: var(--color-success); color: var(--color-white); }
+        .notification.error { background: var(--color-danger); color: var(--color-white); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>STOL<span class="danger">INX</span></h1>
+            <p style="text-align: center; color: var(--color-info-dark); margin-bottom: 2rem;">Faça seu pedido abaixo</p>
+        </header>
+
+        <div id="notification-area" class="notification"></div>
+
+        <div id="pedido-form-content">
+            <div class="card">
+                <h2>Nossos Produtos</h2>
+                <div id="lista-produtos-categorias">
+                    <p>Carregando produtos...</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Seus Dados e Detalhes</h2>
+                <form id="form-pedido-cliente">
+                    <div class="input-group">
+                        <label for="cliente-nome">Seu Nome</label>
+                        <input type="text" id="cliente-nome" placeholder="Digite seu nome completo" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-telefone">Seu WhatsApp (Opcional)</label>
+                        <input type="tel" id="cliente-telefone" placeholder="(xx) xxxxx-xxxx">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-detalhes">Observações do Pedido</label>
+                        <textarea id="cliente-detalhes" placeholder="Ex: Algum item para presente, preferência de entrega, etc."></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-pagamento">Forma de Pagamento Preferida</label>
+                        <select id="cliente-pagamento">
+                            <option>Dinheiro</option><option>Pix</option><option>Cartão de Crédito</option><option>Cartão de Débito</option>
+                        </select>
+                    </div>
+                    <button type="submit">Enviar Pedido</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAv54tgJ5oYrwTSNXpB2rCGjNbhJhe2CoM",
+            authDomain: "stolinx-d6e26.firebaseapp.com",
+            projectId: "stolinx-d6e26",
+            storageBucket: "stolinx-d6e26.appspot.com",
+            messagingSenderId: "715535971682",
+            appId: "1:715535971682:web:66620d1590ae3e4ba6a83b"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const userId = params.get('user');
+            const listaProdutosDiv = document.getElementById('lista-produtos-categorias');
+            const formPedido = document.getElementById('form-pedido-cliente');
+            const notificationArea = document.getElementById('notification-area');
+
+            if (!userId) {
+                listaProdutosDiv.innerHTML = '<p style="color: var(--color-danger);">Link inválido. Não foi possível carregar os produtos.</p>';
+                return;
+            }
+
+            async function carregarDados() {
+                try {
+                    const categoriasPromise = db.collection('users').doc(userId).collection('categorias').orderBy('nome').get();
+                    const produtosPromise = db.collection('users').doc(userId).collection('produtos').orderBy('nome').get();
+                    
+                    const [categoriasSnapshot, produtosSnapshot] = await Promise.all([categoriasPromise, produtosPromise]);
+
+                    const categorias = {};
+                    categoriasSnapshot.forEach(doc => {
+                        categorias[doc.data().nome] = [];
+                    });
+                    categorias['Sem Categoria'] = [];
+
+                    produtosSnapshot.forEach(doc => {
+                        const produto = { id: doc.id, ...doc.data() };
+                        if (produto.categoria && categorias[produto.categoria]) {
+                            categorias[produto.categoria].push(produto);
+                        } else {
+                            categorias['Sem Categoria'].push(produto);
+                        }
+                    });
+
+                    listaProdutosDiv.innerHTML = '';
+                    for (const nomeCategoria in categorias) {
+                        if (categorias[nomeCategoria].length > 0) {
+                            const categoriaDiv = document.createElement('div');
+                            categoriaDiv.className = 'categoria-bloco';
+                            categoriaDiv.innerHTML = `<h3 class="categoria-titulo">${nomeCategoria}</h3>`;
+                            
+                            categorias[nomeCategoria].forEach(p => {
+                                const produtoHTML = `
+                                    <div class="produto-item">
+                                        <div class="produto-info">
+                                            <h3>${p.nome}</h3>
+                                            <p>R$ ${p.valorVenda.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+                                        </div>
+                                        <div class="produto-qtd">
+                                            <input type="number" min="0" placeholder="0" class="input-qtd-produto" 
+                                                   data-id="${p.id}" data-nome="${p.nome}" data-preco="${p.valorVenda}" data-custo="${p.custo}">
+                                        </div>
+                                    </div>
+                                `;
+                                categoriaDiv.innerHTML += produtoHTML;
+                            });
+                            listaProdutosDiv.appendChild(categoriaDiv);
+                        }
+                    }
+                } catch (error) {
+                    console.error("Erro ao carregar dados:", error);
+                    listaProdutosDiv.innerHTML = '<p style="color: var(--color-danger);">Ocorreu um erro ao carregar os produtos. Tente novamente mais tarde.</p>';
+                }
+            }
+
+            formPedido.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const itensPedido = [];
+                document.querySelectorAll('.input-qtd-produto').forEach(input => {
+                    const qtd = parseInt(input.value);
+                    if (qtd > 0) {
+                        itensPedido.push({
+                            id: input.dataset.id,
+                            nome: input.dataset.nome,
+                            preco: parseFloat(input.dataset.preco),
+                            custo: parseFloat(input.dataset.custo),
+                            qtd: qtd
+                        });
+                    }
+                });
+
+                if (itensPedido.length === 0) {
+                    showNotification('Por favor, selecione a quantidade de pelo menos um produto.', 'error');
+                    return;
+                }
+
+                const pedido = {
+                    clienteNome: document.getElementById('cliente-nome').value,
+                    clienteTelefone: document.getElementById('cliente-telefone').value,
+                    detalhes: document.getElementById('cliente-detalhes').value,
+                    formaPagamento: document.getElementById('cliente-pagamento').value,
+                    itens: itensPedido,
+                    status: 'pendente',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                try {
+                    await db.collection('users').doc(userId).collection('pedidos').add(pedido);
+                    document.getElementById('pedido-form-content').style.display = 'none';
+                    showNotification('Seu pedido foi enviado com sucesso! Entraremos em contato em breve.', 'success');
+                } catch (error) {
+                    console.error("Erro ao enviar pedido: ", error);
+                    showNotification('Ocorreu um erro ao enviar seu pedido. Tente novamente.', 'error');
+                }
+            });
+            
+            function showNotification(message, type) {
+                notificationArea.textContent = message;
+                notificationArea.className = `notification ${type}`;
+                notificationArea.style.display = 'block';
+                window.scrollTo(0, 0);
+            }
+
+            carregarDados();
+        });
+    </script>
+</body>
+</html>
