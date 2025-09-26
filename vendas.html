@@ -80,21 +80,43 @@
             gap: 1rem;
             margin-bottom: 1rem;
         }
+        
+        /* === NOVOS ESTILOS PARA A SUGESTÃO DE PRODUTOS === */
+        #sugestoes-produtos-container {
+            display: none; /* Começa escondida */
+            position: absolute;
+            background-color: var(--color-white);
+            border: 1px solid var(--color-light);
+            border-radius: var(--border-radius-1);
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000; /* Garante que fique sobre outros elementos */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .sugestao-item {
+            padding: 1rem;
+            cursor: pointer;
+            border-bottom: 1px solid var(--color-light);
+        }
+
+        .sugestao-item:last-child {
+            border-bottom: none;
+        }
+
+        .sugestao-item:hover {
+            background-color: var(--color-light);
+        }
     </style>
 
-    <!-- Adicione estas linhas dentro da tag <head> -->
+    <meta name="theme-color" content="#009688">
 
-<!-- Cor da barra de status em navegadores mobile -->
-<meta name="theme-color" content="#009688">
+    <link rel="manifest" href="manifest.json">
 
-<!-- Link para o manifest.json -->
-<link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192x192.png">
 
-<!-- Ícone para dispositivos Apple -->
-<link rel="apple-touch-icon" href="icon-192x192.png">
-
-<!-- Script para registrar o Service Worker -->
-<script>
+    <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/service-worker.js')
@@ -106,7 +128,7 @@
                 });
         });
     }
-</script>
+    </script>
 
 </head>
 <body>
@@ -154,7 +176,6 @@
                     </div>
              </div>
              
-             <!-- NOVO CARD DE PEDIDOS PENDENTES -->
              <div id="pedidos-pendentes-container" class="card" style="display: none;">
                 <h2>Pedidos Pendentes
                     <span id="contador-pedidos" class="notification-badge">0</span>
@@ -179,13 +200,14 @@
                         </div>
 
                         <div class="input-group" style="grid-column: 1 / -1;">
-                             <label for="selectProdutoVenda">Adicionar Produto</label>
-                             <div style="display: flex; gap: 1rem;">
-                                 <select id="selectProdutoVenda" style="flex-grow: 1;">
-                                     <option value="">Cadastre um item no estoque primeiro</option>
-                                 </select>
-                                 <input type="number" id="quantidadeVenda" value="1" min="1" style="max-width: 100px;">
-                             </div>
+                            <label for="pesquisaProdutoVenda">Adicionar Produto</label>
+                            <div style="display: flex; gap: 1rem;">
+                                <div style="flex-grow: 1; position: relative;">
+                                    <input type="text" id="pesquisaProdutoVenda" placeholder="Digite para pesquisar um produto..." style="width: 100%;">
+                                    <div id="sugestoes-produtos-container"></div>
+                                </div>
+                                <input type="number" id="quantidadeVenda" value="1" min="1" style="max-width: 100px;">
+                            </div>
                         </div>
 
                         <div class="input-group" style="grid-column: 1 / -1;">
@@ -209,7 +231,6 @@
                         </table>
                     </div>
 
-                    <!-- SEÇÃO DE TOTAIS MODIFICADA -->
                     <div class="total-section">
                         <h3>Subtotal: <span id="subtotal-venda">R$ 0,00</span></h3>
                         
@@ -249,7 +270,6 @@
                         <div class="input-group" style="grid-column: 1 / -1;">
                             <label>Ações</label>
                             <div class="action-buttons-grid">
-                                <!-- BOTÃO NOVO -->
                                 <button type="button" id="share-pedido-link-btn" style="background: var(--color-primary);">
                                     <span class="material-icons-sharp">link</span> Enviar Link de Pedido
                                 </button>
@@ -291,7 +311,6 @@
                             <tbody id="historico-vendas-body"></tbody>
                         </table>
                     </div>
-                    <!-- Controles de Paginação Adicionados -->
                     <div id="pagination-controls-vendas" class="pagination-container">
                         <button id="prev-page-vendas" class="pagination-button">&lt;&lt;</button>
                         <span id="page-info-vendas" class="page-info"></span>
@@ -302,7 +321,6 @@
         </main>
     </div>
     
-    <!-- Generic Notification Modal -->
     <div class="modal-overlay" id="app-notification-modal">
         <div class="modal-container" style="max-width: 400px;">
             <div class="modal-header">
@@ -331,12 +349,59 @@
                     const itemsPerPageVendas = 5;
                     const descontoManualInput = document.getElementById('descontoVenda');
                     const descontoPercentInput = document.getElementById('descontoPorcentagem');
+                    
+                    // === NOVAS VARIÁVEIS PARA A BUSCA DE PRODUTOS ===
+                    let todosOsProdutos = [];
+                    let produtoSelecionado = null;
 
                     // Novos elementos do interruptor de desconto
                     const tipoDescontoRSBtn = document.getElementById('tipo-desconto-rs');
                     const tipoDescontoPorcentoBtn = document.getElementById('tipo-desconto-porcento');
                     const descontoRSContainer = document.getElementById('desconto-rs-container');
                     const descontoPorcentoContainer = document.getElementById('desconto-porcento-container');
+                    
+                    // === NOVO BLOCO - LÓGICA DE PESQUISA E SUGESTÕES ===
+                    const pesquisaInput = document.getElementById('pesquisaProdutoVenda');
+                    const sugestoesContainer = document.getElementById('sugestoes-produtos-container');
+
+                    pesquisaInput.addEventListener('input', () => {
+                        const termo = pesquisaInput.value.toLowerCase();
+                        sugestoesContainer.innerHTML = '';
+                        produtoSelecionado = null; // Reseta a seleção ao digitar
+
+                        if (termo.length === 0) {
+                            sugestoesContainer.style.display = 'none';
+                            return;
+                        }
+
+                        const produtosFiltrados = todosOsProdutos.filter(p =>
+                            p.nome.toLowerCase().includes(termo)
+                        );
+
+                        if (produtosFiltrados.length > 0) {
+                            produtosFiltrados.forEach(produto => {
+                                const itemDiv = document.createElement('div');
+                                itemDiv.className = 'sugestao-item';
+                                itemDiv.textContent = `${produto.nome} (Estoque: ${produto.quantidade}) - R$ ${produto.valorVenda.toFixed(2)}`;
+                                
+                                itemDiv.addEventListener('click', () => {
+                                    pesquisaInput.value = produto.nome; 
+                                    produtoSelecionado = produto; 
+                                    sugestoesContainer.style.display = 'none';
+                                });
+                                sugestoesContainer.appendChild(itemDiv);
+                            });
+                            sugestoesContainer.style.display = 'block';
+                        } else {
+                            sugestoesContainer.style.display = 'none';
+                        }
+                    });
+
+                    document.addEventListener('click', (e) => {
+                        if (!pesquisaInput.contains(e.target)) {
+                            sugestoesContainer.style.display = 'none';
+                        }
+                    });
 
 
                     document.querySelectorAll('.currency').forEach(input => {
@@ -352,22 +417,20 @@
                         e.target.value = value;
                     });
 
+                    // === FUNÇÃO MODIFICADA PARA CARREGAR PRODUTOS PARA O ARRAY ===
                     function carregarProdutosParaVenda() {
                         const unsub = getUserCollection("produtos").orderBy("nome").onSnapshot((querySnapshot) => {
-                            const selectVenda = document.getElementById('selectProdutoVenda');
-                            selectVenda.innerHTML = '<option value="">Selecione um item do estoque</option>';
+                            todosOsProdutos = []; // Limpa o array antes de preencher
                             querySnapshot.forEach((doc) => {
                                 const produto = doc.data();
                                 if (produto.quantidade > 0) {
-                                    const option = document.createElement('option');
-                                    option.value = doc.id;
-                                    option.textContent = `${produto.nome} (Estoque: ${produto.quantidade}) - R$ ${produto.valorVenda.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-                                    option.dataset.price = produto.valorVenda;
-                                    option.dataset.cost = produto.custo;
-                                    option.dataset.name = produto.nome;
-                                    selectVenda.appendChild(option);
+                                    todosOsProdutos.push({
+                                        id: doc.id,
+                                        ...produto
+                                    });
                                 }
                             });
+                            console.log("Produtos carregados para pesquisa:", todosOsProdutos.length);
                         });
                         firestoreUnsubscribes.push(unsub);
                     }
@@ -404,10 +467,8 @@
                         
                         document.getElementById('subtotal-venda').textContent = `R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
                         
-                        // Lógica de Desconto Refatorada
                         let descontoFinal = 0;
                         
-                        // Verifica qual tipo de desconto está ativo
                         if (tipoDescontoPorcentoBtn.classList.contains('active')) {
                             const descontoPercent = parseFloat(descontoPercentInput.value) || 0;
                             if (descontoPercent > 0) {
@@ -422,18 +483,14 @@
                         document.getElementById('total-venda').textContent = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
                     }
 
-                    // Listeners simplificados para os inputs
                     descontoManualInput.addEventListener('input', atualizarTabelaOrcamento);
                     descontoPercentInput.addEventListener('input', atualizarTabelaOrcamento);
 
-                    // Listeners para o interruptor
                     tipoDescontoRSBtn.addEventListener('click', () => {
                         tipoDescontoRSBtn.classList.add('active');
                         tipoDescontoPorcentoBtn.classList.remove('active');
-                        
                         descontoRSContainer.style.display = 'grid';
                         descontoPorcentoContainer.style.display = 'none';
-
                         descontoPercentInput.value = '';
                         atualizarTabelaOrcamento();
                     });
@@ -441,27 +498,31 @@
                     tipoDescontoPorcentoBtn.addEventListener('click', () => {
                         tipoDescontoPorcentoBtn.classList.add('active');
                         tipoDescontoRSBtn.classList.remove('active');
-                        
                         descontoPorcentoContainer.style.display = 'grid';
                         descontoRSContainer.style.display = 'none';
-
                         descontoManualInput.value = '';
                         atualizarTabelaOrcamento();
                     });
 
+                    // === BOTÃO "ADICIONAR" MODIFICADO ===
                     document.getElementById('addItemOrcamento').addEventListener('click', () => {
-                        const select = document.getElementById('selectProdutoVenda');
-                        const produtoId = select.value;
-                        if (!produtoId) return;
-                        const selectedOption = select.options[select.selectedIndex];
+                        if (!produtoSelecionado) {
+                            showAppNotification('Por favor, pesquise e selecione um produto da lista.');
+                            return;
+                        }
+
                         orcamento.push({
-                            id: produtoId,
-                            nome: selectedOption.dataset.name,
+                            id: produtoSelecionado.id,
+                            nome: produtoSelecionado.nome,
                             qtd: parseInt(document.getElementById('quantidadeVenda').value),
-                            preco: parseFloat(selectedOption.dataset.price),
-                            custo: parseFloat(selectedOption.dataset.cost)
+                            preco: parseFloat(produtoSelecionado.valorVenda),
+                            custo: parseFloat(produtoSelecionado.custo)
                         });
+                        
                         atualizarTabelaOrcamento();
+                        
+                        pesquisaInput.value = '';
+                        produtoSelecionado = null;
                     });
 
                     document.getElementById('registrar-venda-btn').addEventListener('click', () => {
@@ -515,15 +576,12 @@
                         window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
                     });
                     
-                    // FUNÇÃO CORRIGIDA: Compartilhar link de pedido
                     document.getElementById('share-pedido-link-btn').addEventListener('click', () => {
-                        // AQUI ESTÁ A CORREÇÃO: Adicionando o nome do repositório    
                         const url = `${window.location.origin}/pedido.html?user=${currentUserId}`;
                         const mensagem = `Olá! 😊\n\nEstou enviando o link da nossa loja para você fazer seu pedido de forma fácil e rápida. Basta escolher os produtos e as quantidades que desejar!\n\nClique aqui: ${url}\n\nQualquer dúvida, é só me chamar!`;
                         window.open(`https://wa.me/?text=${encodeURIComponent(mensagem)}`, '_blank');
                     });
 
-                    // NOVA FUNÇÃO: Carregar Pedidos Pendentes
                     function carregarPedidosPendentes() {
                         const container = document.getElementById('pedidos-pendentes-container');
                         const listaDiv = document.getElementById('lista-pedidos-pendentes');
@@ -555,7 +613,6 @@
                                             document.getElementById('formaPagamento').value = pedido.formaPagamento;
                                             orcamento = pedido.itens;
                                             atualizarTabelaOrcamento();
-                                            // Marcar como visualizado
                                             getUserCollection('pedidos').doc(doc.id).update({ status: 'visualizado' });
                                             document.querySelector('main').scrollIntoView({ behavior: 'smooth' });
                                         });
@@ -565,7 +622,6 @@
                             });
                         firestoreUnsubscribes.push(unsub);
                     }
-
 
                     function carregarHistoricoVendas() {
                         const unsub = getUserCollection('vendas').onSnapshot(snapshot => {
@@ -620,13 +676,13 @@
                         nextButton.disabled = currentPageVendas === totalPages || totalPages === 0;
                     }
 
-                    const pesquisaInput = document.getElementById('pesquisa-venda-cliente');
+                    const pesquisaVendaInput = document.getElementById('pesquisa-venda-cliente');
                     const filtroDataInicio = document.getElementById('filtro-data-inicio');
                     const filtroDataFim = document.getElementById('filtro-data-fim');
                     const limparFiltroBtn = document.getElementById('limpar-filtro-data');
                     
                     function filtrarErenderizarVendas() {
-                        const termo = pesquisaInput.value.toLowerCase().trim();
+                        const termo = pesquisaVendaInput.value.toLowerCase().trim();
                         const dataInicio = filtroDataInicio.value;
                         const dataFim = filtroDataFim.value;
 
@@ -660,7 +716,7 @@
                         renderizarVendas(); 
                     }
 
-                    pesquisaInput.addEventListener('input', filtrarErenderizarVendas);
+                    pesquisaVendaInput.addEventListener('input', filtrarErenderizarVendas);
                     filtroDataInicio.addEventListener('change', filtrarErenderizarVendas);
                     filtroDataFim.addEventListener('change', filtrarErenderizarVendas);
                     limparFiltroBtn.addEventListener('click', () => {
@@ -687,11 +743,10 @@
                     document.getElementById('dataVenda').value = new Date().toLocaleDateString('pt-BR');
                     carregarProdutosParaVenda();
                     carregarHistoricoVendas();
-                    carregarPedidosPendentes(); // Chamar a nova função
+                    carregarPedidosPendentes();
                 }
             });
         });
     </script>
 </body>
 </html>
-
