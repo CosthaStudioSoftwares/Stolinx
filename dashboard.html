@@ -15,6 +15,13 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Sharp" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="style.css">
+
+    <!-- ======================================================= -->
+    <!--     PASSO 1: INSIRA O SCRIPT DO reCAPTCHA AQUI     -->
+    <!-- ======================================================= -->
+    <!-- Exemplo: <script src="https://www.google.com/recaptcha/api.js?render=6LfxJ9YrAAAAAHldTMTw7pMA2PPiETNIh_VviK8V"></script> -->
+
+
     <style>
         /* Estilo para garantir que os botões de exportação tenham o mesmo tamanho */
         .dashboard-filters button {
@@ -222,6 +229,19 @@
     <!-- Bibliotecas para gerar PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    
+    <!-- ======================================================= -->
+    <!--     PASSO 2: INSIRA O CÓDIGO DO APP CHECK AQUI     -->
+    <!-- ======================================================= -->
+    <!-- Ele precisa vir antes do seu <script src="main.js"></script> -->
+    const appCheck = firebase.appCheck();
+        appCheck.activate(
+            6LfxJ9YrAAAAAHldTMTw7pMA2PPiETNIh_VviK8V
+',
+            true
+        );
+    <!-- Exemplo: <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app-check.js"></script> -->
+
     <script src="main.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -446,3 +466,4 @@
     </script>
 </body>
 </html>
+
