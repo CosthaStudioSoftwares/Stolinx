@@ -19,6 +19,7 @@
     <!-- ======================================================= -->
     <!--     PASSO 1: SCRIPT DO reCAPTCHA (AGORA ATIVO)      -->
     <!-- ======================================================= -->
+    <!-- IMPORTANTE: Substitua pela sua chave real do reCAPTCHA -->
     <script src="https://www.google.com/recaptcha/api.js?render=6LfxJ9YrAAAAAHldTMTw7pMA2PPiETNIh_VviK8V"></script>
 
 
@@ -220,7 +221,7 @@
         const firebaseConfig = {
             apiKey: "AIzaSyAv54tgJ5oYrwTSNXpB2rCGjNbhJhe2CoM",
             authDomain: "stolinx-d6e26.firebaseapp.com",
-            projectId: "stolinx-d6e2le-26",
+            projectId: "stolinx-d6e26", // CORRIGIDO: Typo removido
             storageBucket: "stolinx-d6e26.appspot.com",
             messagingSenderId: "715535971682",
             appId: "1:715535971682:web:66620d1590ae3e4ba6a83b"
@@ -234,6 +235,7 @@
         // =======================================================
         //     PASSO 2: ATIVAÇÃO DO APP CHECK (AGORA CORRETA)     
         // =======================================================
+        // IMPORTANTE: Substitua pela sua chave real do reCAPTCHA
         const appCheck = firebase.appCheck();
         appCheck.activate(
             '6LfxJ9YrAAAAAHldTMTw7pMA2PPiETNIh_VviK8V',
@@ -255,7 +257,7 @@
             }
         });
         
-        // --- FUNÇÕES DE AJUDA ---
+        // --- FUNÇÕES DE AJUDA (INTEGRADAS DO main.js) ---
         function getUserCollection(collectionName) {
             if (!currentUserId) throw new Error("ID do utilizador não encontrado.");
             return db.collection('users').doc(currentUserId).collection(collectionName);
