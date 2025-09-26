@@ -233,19 +233,13 @@
         }
     </style>
 
-    <!-- Adicione estas linhas dentro da tag <head> -->
+    <meta name="theme-color" content="#009688">
 
-<!-- Cor da barra de status em navegadores mobile -->
-<meta name="theme-color" content="#009688">
+    <link rel="manifest" href="manifest.json">
 
-<!-- Link para o manifest.json -->
-<link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192x192.png">
 
-<!-- Ícone para dispositivos Apple -->
-<link rel="apple-touch-icon" href="icon-192x192.png">
-
-<!-- Script para registrar o Service Worker -->
-<script>
+    <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/service-worker.js')
@@ -257,12 +251,11 @@
                 });
         });
     }
-</script>
+    </script>
 
 </head>
 <body>
     <div class="auth-main-container">
-        <!-- Painel Esquerdo com a marca -->
         <div class="left-panel">
             <div class="branding-content">
                 <h1>Bem-vindo ao STOL<span class="danger">INX</span></h1>
@@ -270,13 +263,11 @@
             </div>
         </div>
 
-        <!-- Painel Direito com os formulários -->
         <div class="right-panel">
             <div id="auth-container">
                 <div class="auth-form-wrapper">
                     <div id="auth-message"></div>
 
-                    <!-- Formulário de Login -->
                     <form id="login-form">
                         <h1>Acesse sua Conta</h1>
                         <p>Bem-vindo de volta!</p>
@@ -291,7 +282,6 @@
                         <a class="auth-toggle-link" id="show-register">Não tem uma conta? Cadastre-se</a>
                     </form>
         
-                    <!-- Formulário de Cadastro -->
                     <form id="register-form">
                         <h1>Crie sua Conta</h1>
                         <p>É rápido e fácil.</p>
@@ -361,7 +351,7 @@
             setTimeout(() => {
                 registerForm.style.display = 'none';
                 loginForm.style.display = 'block';
-                 setTimeout(() => {
+                    setTimeout(() => {
                     loginForm.style.opacity = '1';
                     loginForm.style.transform = 'scale(1)';
                 }, 50);
@@ -410,35 +400,20 @@
                     }, 4000);
                 })
                 .catch(error => {
-                    // ===================================================================
-                    // INÍCIO DA ALTERAÇÃO: Lógica para e-mail já cadastrado
-                    // ===================================================================
                     if (error.code === 'auth/email-already-in-use') {
-                        // Pega o e-mail que o usuário tentou cadastrar
                         const existingEmail = document.getElementById('register-email').value;
-                        
-                        // Preenche o campo de e-mail no formulário de login
                         document.getElementById('login-email').value = existingEmail;
-                        
-                        // Simula o clique para trocar para a tela de login
                         document.getElementById('show-login').click();
-                        
-                        // Aguarda a animação da troca de tela e exibe a mensagem
                         setTimeout(() => {
                             showAuthMessage('Este e-mail já está cadastrado. Por favor, insira sua senha para entrar.');
-                        }, 500); // 500ms é um bom tempo para a transição
-
+                        }, 500);
                     } else {
-                        // Mantém a lógica para outros erros de cadastro
                         let message = 'Ocorreu um erro ao criar a conta.';
                         if (error.code === 'auth/weak-password') {
                             message = 'A senha deve ter pelo menos 6 caracteres.';
                         }
                         showAuthMessage(message);
                     }
-                    // ===================================================================
-                    // FIM DA ALTERAÇÃO
-                    // ===================================================================
                 });
         });
         
@@ -470,7 +445,7 @@
             if (user) {
                 if (!user.emailVerified) {
                     showAuthMessage('Por favor, verifique seu e-mail para continuar. Olhe sua caixa de entrada ou spam.');
-                    auth.signOut();
+                    // Mantém o usuário na tela de login mas não o desloga, para que ele possa tentar novamente após verificar
                     return;
                 }
 
@@ -479,18 +454,24 @@
                     if (doc.exists) {
                         const userData = doc.data();
                         const now = new Date();
+                        
+                        // ALTERAÇÃO PRINCIPAL: Se o usuário estiver ativo, vai para o dashboard.
+                        // Se não estiver, TAMBÉM VAI PARA O DASHBOARD para poder renovar.
                         if (userData.active && userData.expiresAt && userData.expiresAt.toDate() > now) {
                             window.location.href = 'dashboard.html';
                         } else {
-                            window.location.href = 'ativacao.html';
+                            // Redireciona para o dashboard mesmo se a conta estiver inativa/expirada
+                            window.location.href = 'dashboard.html';
                         }
                     } else {
-                         userRef.set({
+                        // Se for um usuário novo (primeiro login após verificação), cria o documento e redireciona.
+                        userRef.set({
                             email: user.email,
                             active: false,
                             expiresAt: null
                         }).then(() => {
-                            window.location.href = 'ativacao.html';
+                            // Redireciona para o dashboard para que ele possa fazer o primeiro pagamento
+                            window.location.href = 'dashboard.html';
                         });
                     }
                 });
@@ -499,7 +480,3 @@
     </script>
 </body>
 </html>
-
-
-
-
