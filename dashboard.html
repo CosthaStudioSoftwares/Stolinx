@@ -50,24 +50,15 @@
 
     <!-- Cor da barra de status em navegadores mobile -->
     <meta name="theme-color" content="#009688">
-
-    <!-- Link para o manifest.json -->
     <link rel="manifest" href="manifest.json">
-
-    <!-- Ícone para dispositivos Apple -->
     <link rel="apple-touch-icon" href="icon-192x192.png">
 
-    <!-- Script para registrar o Service Worker -->
     <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/service-worker.js')
-                .then(registration => {
-                    console.log('Service Worker registrado com sucesso:', registration);
-                })
-                .catch(error => {
-                    console.log('Falha ao registrar o Service Worker:', error);
-                });
+                .then(registration => console.log('Service Worker registrado com sucesso:', registration))
+                .catch(error => console.log('Falha ao registrar o Service Worker:', error));
         });
     }
     </script>
@@ -221,7 +212,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-functions.js"></script>
-    <!-- SCRIPT DO APP CHECK (AGORA ATIVO) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app-check.js"></script> 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
@@ -230,7 +220,7 @@
         const firebaseConfig = {
             apiKey: "AIzaSyAv54tgJ5oYrwTSNXpB2rCGjNbhJhe2CoM",
             authDomain: "stolinx-d6e26.firebaseapp.com",
-            projectId: "stolinx-d6e26",
+            projectId: "stolinx-d6e2le-26",
             storageBucket: "stolinx-d6e26.appspot.com",
             messagingSenderId: "715535971682",
             appId: "1:715535971682:web:66620d1590ae3e4ba6a83b"
