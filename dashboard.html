@@ -17,9 +17,9 @@
     <link rel="stylesheet" href="style.css">
 
     <!-- ======================================================= -->
-    <!-- ================   1. CÓDIGO DO APP CHECK   =============== -->
+    <!--     PASSO 1: INSIRA A SUA CHAVE DO SITE reCAPTCHA AQUI     -->
     <!-- ======================================================= -->
-    <script src="https://www.google.com/recaptcha/api.js?render=6LfxJ9YrAAAAAHldTMTw7pMA2PPiETNIh_VviK8V"></script>
+    <script src="https://www.google.com/recaptcha/api.js?render=A_SUA_CHAVE_DO_SITE_AQUI"></script>
 
 
     <style>
@@ -74,7 +74,7 @@
 
 </head>
 <body>
-    <div class="container visible">
+    <div class="container">
         <aside>
             <div class="top">
                 <div class="logo">
@@ -205,7 +205,7 @@
         </main>
     </div>
     
-    <!-- Generic Notification Modal (reused from main.js) -->
+    <!-- Generic Notification Modal -->
     <div class="modal-overlay" id="app-notification-modal">
         <div class="modal-container" style="max-width: 400px;">
             <div class="modal-header">
@@ -224,19 +224,13 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-    <!-- SDK DO FIREBASE FUNCTIONS (ESSENCIAL PARA PAGAMENTO) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-functions.js"></script>
-    <!-- ======================================================= -->
-    <!-- ==============  SDK DO APP CHECK (NOVO)  ============== -->
-    <!-- ======================================================= -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app-check.js"></script>
     
-    <!-- Bibliotecas para gerar PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
-    <script src="main.js"></script>
+    
     <script>
-        // Adicionando a sua firebaseConfig aqui para o código ser autocontido
         const firebaseConfig = {
             apiKey: "AIzaSyAv54tgJ5oYrwTSNXpB2rCGjNbhJhe2CoM",
             authDomain: "stolinx-d6e26.firebaseapp.com",
@@ -247,222 +241,238 @@
         };
 
         // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const functions = firebase.functions();
+        
         // =======================================================
-        // ============== 2. CÓDIGO DO APP CHECK ===============
+        //     PASSO 2: INSIRA A SUA CHAVE DO SITE reCAPTCHA AQUI     
         // =======================================================
         const appCheck = firebase.appCheck();
         appCheck.activate(
-            '6LfxJ9YrAAAAAHldTMTw7pMA2PPiETNIh_VviK8V',
+            'A_SUA_CHAVE_DO_SITE_AQUI',
             true
         );
 
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeApp({
-                page: 'dashboard',
-                init: () => {
-                    // --- DASHBOARD SPECIFIC LOGIC ---
-                    let salesChartInstance;
-                    const filtroMes = document.getElementById('filtro-mes');
-                    const filtroAno = document.getElementById('filtro-ano');
-                    const exportBtn = document.getElementById('export-dashboard-btn');
-                    const exportPdfBtn = document.getElementById('export-pdf-btn');
-                    const dashboardTitle = document.getElementById('dashboard-title');
-                    
-                    const renewBtn = document.getElementById('renew-subscription-btn');
-                    const functions = firebase.functions();
+        let currentUserId = null;
+        let firestoreUnsubscribes = [];
 
-                    renewBtn.addEventListener('click', () => {
-                        showAppNotification('Aguarde, estamos gerando seu link de pagamento...', 'info');
-                        
-                        const createOrder = functions.httpsCallable('createPagbankOrder');
-                        createOrder()
-                            .then((result) => {
-                                const paymentLink = result.data.paymentLink;
-                                if (paymentLink) {
-                                    window.location.href = paymentLink; 
-                                } else {
-                                    showAppNotification('Não foi possível obter o link de pagamento.');
-                                }
-                            })
-                            .catch((error) => {
-                                console.error("Erro ao criar pedido: ", error);
-                                showAppNotification(`Erro: ${error.message}`);
-                            });
-                    });
-
-                    function displaySubscriptionStatus() {
-                        if (!currentUserId) return; 
-                        const userRef = db.collection('users').doc(currentUserId);
-                        const statusEl = document.getElementById('subscription-status');
-
-                        userRef.onSnapshot(doc => {
-                            if (doc.exists) {
-                                const userData = doc.data();
-                                if (userData && userData.active && userData.expiresAt) {
-                                    const expiresDate = userData.expiresAt.toDate();
-                                    const now = new Date();
-                                    now.setHours(0, 0, 0, 0);
-                                    expiresDate.setHours(0, 0, 0, 0);
-
-                                    const diffTime = expiresDate.getTime() - now.getTime();
-                                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                                    let message = '';
-                                    if (diffDays > 7) {
-                                        message = `Sua assinatura expira em <span class="days-remaining primary">${diffDays} dias</span>.`;
-                                    } else if (diffDays > 1) {
-                                        message = `Sua assinatura expira em <span class="days-remaining warning">${diffDays} dias</span>.`;
-                                    } else if (diffDays === 1) {
-                                        message = `Sua assinatura expira <span class="days-remaining warning">amanhã</span>.`;
-                                    } else if (diffDays === 0) {
-                                        message = `Sua assinatura expira <span class="days-remaining danger">hoje</span>.`;
-                                    } else {
-                                        message = `<span class="days-remaining danger">Sua assinatura expirou.</span> Renove para continuar.`;
-                                    }
-                                    statusEl.innerHTML = message;
-                                } else {
-                                    statusEl.innerHTML = `Sua conta não possui uma assinatura ativa.`;
-                                }
-                            }
-                        }, error => {
-                            console.error("Erro ao ouvir status da assinatura:", error);
-                            statusEl.textContent = 'Não foi possível carregar o status da assinatura.';
-                        });
-                    }
-
-                    function populateDateFilters() {
-                        const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-                        filtroMes.innerHTML = '<option value="all">Ano Inteiro</option>';
-                        meses.forEach((mes, index) => {
-                            filtroMes.innerHTML += `<option value="${index}">${mes}</option>`;
-                        });
-
-                        const anoAtual = new Date().getFullYear();
-                        filtroAno.innerHTML = '';
-                        for (let i = anoAtual; i >= anoAtual - 5; i--) {
-                            filtroAno.innerHTML += `<option value="${i}">${i}</option>`;
-                        }
-
-                        filtroMes.value = new Date().getMonth();
-                        filtroAno.value = anoAtual;
-                    }
-
-                    function atualizarDashboard() {
-                        const ano = parseInt(filtroAno.value);
-                        const mes = filtroMes.value;
-
-                        const faturamentoEl = document.getElementById('faturamento-mes');
-                        const investimentoEl = document.getElementById('investimento-mes');
-                        const lucroEl = document.getElementById('lucro-mes');
-                        const topSellersBody = document.getElementById('produtos-mais-saida-body');
-                        
-                        const unsubEstoque = getUserCollection('produtos').onSnapshot(snapshot => {
-                            let investimentoTotal = 0;
-                            let lucroPotencialTotal = 0;
-                            snapshot.forEach(doc => {
-                                const p = doc.data();
-                                investimentoTotal += (p.custo || 0) * (p.quantidade || 0);
-                                lucroPotencialTotal += (p.valorVenda - p.custo) * (p.quantidade || 0);
-                            });
-                            investimentoEl.textContent = `R$ ${investimentoTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-                            lucroEl.textContent = `R$ ${lucroPotencialTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-                        });
-                        firestoreUnsubscribes.push(unsubEstoque);
-
-                        let primeiroDia, ultimoDia;
-                        if (mes === 'all') {
-                            primeiroDia = new Date(ano, 0, 1);
-                            ultimoDia = new Date(ano, 11, 31, 23, 59, 59);
-                            dashboardTitle.textContent = `Dashboard - Ano de ${ano}`;
-                        } else {
-                            primeiroDia = new Date(ano, parseInt(mes), 1);
-                            ultimoDia = new Date(ano, parseInt(mes) + 1, 0, 23, 59, 59);
-                            dashboardTitle.textContent = `Dashboard - ${filtroMes.options[filtroMes.selectedIndex].text} de ${ano}`;
-                        }
-
-                        const unsubVendas = getUserCollection('vendas')
-                            .where('data', '>=', primeiroDia)
-                            .where('data', '<=', ultimoDia)
-                            .onSnapshot(snapshot => {
-                                let faturamentoPeriodo = 0;
-                                const topSellers = {};
-
-                                snapshot.forEach(doc => {
-                                    const v = doc.data();
-                                    faturamentoPeriodo += v.total || 0;
-                                    if (v.itens) {
-                                        v.itens.forEach(item => {
-                                            topSellers[item.nome] = (topSellers[item.nome] || 0) + item.qtd;
-                                        });
-                                    }
-                                });
-
-                                faturamentoEl.textContent = `R$ ${faturamentoPeriodo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-
-                                const sortedTopSellers = Object.entries(topSellers).sort((a, b) => b[1] - a[1]);
-                                
-                                topSellersBody.innerHTML = '';
-                                if (sortedTopSellers.length === 0) {
-                                    topSellersBody.innerHTML = '<tr><td colspan="2">Nenhuma venda no período.</td></tr>';
-                                } else {
-                                    sortedTopSellers.slice(0, 10).forEach(([nome, quantidade]) => {
-                                        const tr = document.createElement('tr');
-                                        tr.innerHTML = `<td>${nome}</td><td>${quantidade}</td>`;
-                                        topSellersBody.appendChild(tr);
-                                    });
-                                }
-                                renderProductPieChart(sortedTopSellers);
-                            });
-                        firestoreUnsubscribes.push(unsubVendas);
-                    }
-                    
-                    function renderProductPieChart(topSellersData) {
-                        const ctx = document.getElementById('salesChart').getContext('2d');
-                        
-                        const labels = topSellersData.map(item => item[0]);
-                        const data = topSellersData.map(item => item[1]);
-
-                        if (salesChartInstance) {
-                            salesChartInstance.destroy();
-                        }
-
-                        salesChartInstance = new Chart(ctx, {
-                            type: 'pie',
-                            data: {
-                                labels: labels,
-                                datasets: [{
-                                    label: 'Unidades Vendidas',
-                                    data: data,
-                                    backgroundColor: ['#009688', '#ff7782', '#ffbb55', '#41f1b6', '#7380ec', '#363949', '#a3a6ad'],
-                                    borderColor: ['#fff'],
-                                    borderWidth: 2
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: { legend: { position: 'top' }, title: { display: false } }
-                            }
-                        });
-                    }
-
-                    async function exportDashboardData() { /* Seu código original aqui */ }
-                    function exportDashboardPDF() { /* Seu código original aqui */ }
-                    
-                    // --- INITIALIZATION ---
-                    displaySubscriptionStatus();
-                    filtroMes.addEventListener('change', atualizarDashboard);
-                    filtroAno.addEventListener('change', atualizarDashboard);
-                    exportBtn.addEventListener('click', exportDashboardData);
-                    exportPdfBtn.addEventListener('click', exportDashboardPDF);
-
-                    populateDateFilters();
-                    atualizarDashboard();
-                }
-            });
+        // --- LÓGICA DE AUTENTICAÇÃO E INICIALIZAÇÃO ---
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUserId = user.uid;
+                document.querySelector('.container').classList.add('visible');
+                setupUIEventListeners();
+                runDashboardLogic();
+            } else {
+                window.location.href = 'index.html';
+            }
         });
+        
+        // --- FUNÇÕES DE AJUDA ---
+        function getUserCollection(collectionName) {
+            if (!currentUserId) throw new Error("ID do utilizador não encontrado.");
+            return db.collection('users').doc(currentUserId).collection(collectionName);
+        }
+
+        function showAppNotification(message, title = 'Aviso') {
+            const modal = document.getElementById('app-notification-modal');
+            document.getElementById('app-notification-title').textContent = title;
+            document.getElementById('app-notification-message').textContent = message;
+            modal.style.display = 'flex';
+            document.getElementById('app-notification-close-btn').onclick = () => {
+                modal.style.display = 'none';
+            };
+        }
+        
+        function setupUIEventListeners() {
+            const menuBtn = document.getElementById('menu-btn');
+            const closeBtn = document.getElementById('close-btn');
+            const aside = document.querySelector('aside');
+            if(menuBtn) menuBtn.addEventListener('click', () => aside.style.display = 'block');
+            if(closeBtn) closeBtn.addEventListener('click', () => aside.style.display = 'none');
+
+            const themeToggler = document.getElementById('theme-toggler-link');
+            if(themeToggler) themeToggler.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.documentElement.classList.toggle('dark-theme');
+                const isDarkMode = document.documentElement.classList.contains('dark-theme');
+                localStorage.setItem('darkMode', isDarkMode ? 'enabled' : 'disabled');
+            });
+
+            const logoutBtn = document.getElementById('logout-btn');
+            if(logoutBtn) logoutBtn.addEventListener('click', () => {
+                auth.signOut();
+            });
+        }
+
+        // --- LÓGICA PRINCIPAL DO DASHBOARD ---
+        function runDashboardLogic() {
+            let salesChartInstance;
+            const filtroMes = document.getElementById('filtro-mes');
+            const filtroAno = document.getElementById('filtro-ano');
+            const exportBtn = document.getElementById('export-dashboard-btn');
+            const exportPdfBtn = document.getElementById('export-pdf-btn');
+            const dashboardTitle = document.getElementById('dashboard-title');
+            const renewBtn = document.getElementById('renew-subscription-btn');
+            
+            renewBtn.addEventListener('click', () => {
+                showAppNotification('Aguarde, estamos a gerar o seu link de pagamento...', 'info');
+                const createOrder = functions.httpsCallable('createPagbankOrder');
+                createOrder()
+                    .then((result) => {
+                        const paymentLink = result.data.paymentLink;
+                        if (paymentLink) {
+                            window.location.href = paymentLink; 
+                        } else {
+                            showAppNotification('Não foi possível obter o link de pagamento.');
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Erro ao criar pedido: ", error);
+                        showAppNotification(`Erro: ${error.message}`);
+                    });
+            });
+
+            function displaySubscriptionStatus() {
+                if (!currentUserId) return; 
+                const userRef = db.collection('users').doc(currentUserId);
+                const statusEl = document.getElementById('subscription-status');
+                const unsub = userRef.onSnapshot(doc => {
+                    if (doc.exists) {
+                        const userData = doc.data();
+                        if (userData && userData.active && userData.expiresAt) {
+                            const expiresDate = userData.expiresAt.toDate();
+                            const now = new Date();
+                            now.setHours(0, 0, 0, 0);
+                            expiresDate.setHours(0, 0, 0, 0);
+
+                            const diffTime = expiresDate.getTime() - now.getTime();
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                            let message = '';
+                            if (diffDays > 7) {
+                                message = `A sua assinatura expira em <span class="days-remaining primary">${diffDays} dias</span>.`;
+                            } else if (diffDays > 1) {
+                                message = `A sua assinatura expira em <span class="days-remaining warning">${diffDays} dias</span>.`;
+                            } else if (diffDays === 1) {
+                                message = `A sua assinatura expira <span class="days-remaining warning">amanhã</span>.`;
+                            } else if (diffDays === 0) {
+                                message = `A sua assinatura expira <span class="days-remaining danger">hoje</span>.`;
+                            } else {
+                                message = `<span class="days-remaining danger">A sua assinatura expirou.</span> Renove para continuar.`;
+                            }
+                            statusEl.innerHTML = message;
+                        } else {
+                            statusEl.innerHTML = `A sua conta não possui uma assinatura ativa.`;
+                        }
+                    }
+                }, error => console.error("Erro ao ouvir status da assinatura:", error));
+                firestoreUnsubscribes.push(unsub);
+            }
+
+            function populateDateFilters() {
+                const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+                filtroMes.innerHTML = '<option value="all">Ano Inteiro</option>';
+                meses.forEach((mes, index) => filtroMes.innerHTML += `<option value="${index}">${mes}</option>`);
+                const anoAtual = new Date().getFullYear();
+                filtroAno.innerHTML = '';
+                for (let i = anoAtual; i >= anoAtual - 5; i--) filtroAno.innerHTML += `<option value="${i}">${i}</option>`;
+                filtroMes.value = new Date().getMonth();
+                filtroAno.value = anoAtual;
+            }
+
+            function atualizarDashboard() {
+                const ano = parseInt(filtroAno.value);
+                const mes = filtroMes.value;
+                const faturamentoEl = document.getElementById('faturamento-mes');
+                const investimentoEl = document.getElementById('investimento-mes');
+                const lucroEl = document.getElementById('lucro-mes');
+                const topSellersBody = document.getElementById('produtos-mais-saida-body');
+                
+                const unsubEstoque = getUserCollection('produtos').onSnapshot(snapshot => {
+                    let investimentoTotal = 0, lucroPotencialTotal = 0;
+                    snapshot.forEach(doc => {
+                        const p = doc.data();
+                        investimentoTotal += (p.custo || 0) * (p.quantidade || 0);
+                        lucroPotencialTotal += (p.valorVenda - p.custo) * (p.quantidade || 0);
+                    });
+                    investimentoEl.textContent = `R$ ${investimentoTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                    lucroEl.textContent = `R$ ${lucroPotencialTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                });
+                firestoreUnsubscribes.push(unsubEstoque);
+
+                let primeiroDia, ultimoDia;
+                if (mes === 'all') {
+                    primeiroDia = new Date(ano, 0, 1);
+                    ultimoDia = new Date(ano, 11, 31, 23, 59, 59);
+                    dashboardTitle.textContent = `Dashboard - Ano de ${ano}`;
+                } else {
+                    primeiroDia = new Date(ano, parseInt(mes), 1);
+                    ultimoDia = new Date(ano, parseInt(mes) + 1, 0, 23, 59, 59);
+                    dashboardTitle.textContent = `Dashboard - ${filtroMes.options[filtroMes.selectedIndex].text} de ${ano}`;
+                }
+
+                const unsubVendas = getUserCollection('vendas').where('data', '>=', primeiroDia).where('data', '<=', ultimoDia)
+                    .onSnapshot(snapshot => {
+                        let faturamentoPeriodo = 0;
+                        const topSellers = {};
+                        snapshot.forEach(doc => {
+                            const v = doc.data();
+                            faturamentoPeriodo += v.total || 0;
+                            if (v.itens) v.itens.forEach(item => topSellers[item.nome] = (topSellers[item.nome] || 0) + item.qtd);
+                        });
+                        faturamentoEl.textContent = `R$ ${faturamentoPeriodo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                        const sortedTopSellers = Object.entries(topSellers).sort((a, b) => b[1] - a[1]);
+                        topSellersBody.innerHTML = '';
+                        if (sortedTopSellers.length === 0) {
+                            topSellersBody.innerHTML = '<tr><td colspan="2">Nenhuma venda no período.</td></tr>';
+                        } else {
+                            sortedTopSellers.slice(0, 10).forEach(([nome, quantidade]) => {
+                                const tr = document.createElement('tr');
+                                tr.innerHTML = `<td>${nome}</td><td>${quantidade}</td>`;
+                                topSellersBody.appendChild(tr);
+                            });
+                        }
+                        renderProductPieChart(sortedTopSellers);
+                    });
+                firestoreUnsubscribes.push(unsubVendas);
+            }
+            
+            function renderProductPieChart(topSellersData) {
+                const ctx = document.getElementById('salesChart').getContext('2d');
+                if (salesChartInstance) salesChartInstance.destroy();
+                salesChartInstance = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: topSellersData.map(item => item[0]),
+                        datasets: [{
+                            label: 'Unidades Vendidas',
+                            data: topSellersData.map(item => item[1]),
+                            backgroundColor: ['#009688', '#ff7782', '#ffbb55', '#41f1b6', '#7380ec', '#363949', '#a3a6ad'],
+                            borderColor: ['#fff'],
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'top' }, title: { display: false } }
+                    }
+                });
+            }
+            
+            // --- INITIALIZATION ---
+            displaySubscriptionStatus();
+            filtroMes.addEventListener('change', atualizarDashboard);
+            filtroAno.addEventListener('change', atualizarDashboard);
+            exportBtn.addEventListener('click', () => {}); // Placeholder
+            exportPdfBtn.addEventListener('click', () => {}); // Placeholder
+            populateDateFilters();
+            atualizarDashboard();
+        }
     </script>
 </body>
 </html>
+
