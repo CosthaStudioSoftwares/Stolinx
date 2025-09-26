@@ -86,9 +86,24 @@ function getUserCollection(collectionName) {
  */
 function initializeApp(config) {
     // --- Initialize Firebase ---
+    let app; // Precisamos da variável 'app'
     if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
+        app = firebase.initializeApp(firebaseConfig);
+    } else {
+        app = firebase.app(); // Pega a app já inicializada
     }
+    
+    // =======================================================
+    // ==============    ALTERAÇÃO 1: APP CHECK    ===============
+    // =======================================================
+    // IMPORTANTE: Substitua A_SUA_CHAVE_DO_SITE_AQUI pela sua chave do reCAPTCHA
+    const appCheck = firebase.appCheck();
+    appCheck.activate(
+        '6LfxJ9YrAAAAAHldTMTw7pMA2PPiETNIh_VviK8V',
+        true
+    );
+
+
     auth = firebase.auth();
     db = firebase.firestore();
 
@@ -102,23 +117,37 @@ function initializeApp(config) {
                 if (doc.exists) {
                     const userData = doc.data();
                     const now = new Date();
+                    
+                    // =======================================================
+                    // ===   ALTERAÇÃO 2: CORREÇÃO DO REDIRECIONAMENTO   ===
+                    // =======================================================
+                    // Independentemente de a subscrição estar ativa ou não, o utilizador vai para o dashboard.
                     if (userData.active && userData.expiresAt && userData.expiresAt.toDate() > now) {
-                        // User is active and can stay, run page-specific logic
+                        // Utilizador está ativo e pode ficar, executa a lógica da página
                         setupCommonUI(user);
                         if (config.init && typeof config.init === 'function') {
                             config.init();
                         }
                     } else {
-                        // Subscription expired or not active
-                        window.location.href = 'ativacao.html';
+                        // A subscrição expirou ou não está ativa, mas a página é o dashboard, então está OK.
+                        // Se a página não for o dashboard, redireciona para lá.
+                        if (config.page !== 'dashboard') {
+                           window.location.href = 'dashboard.html';
+                        } else {
+                           // Já está no dashboard, pode continuar e ver a mensagem de renovação.
+                           setupCommonUI(user);
+                           if (config.init && typeof config.init === 'function') {
+                                config.init();
+                           }
+                        }
                     }
                 } else {
-                     // Should not happen if user is logged in, but as a fallback...
+                    // Não deveria acontecer se o utilizador estiver logado, mas como um fallback...
                     window.location.href = 'index.html';
                 }
             });
         } else {
-            // User is not logged in
+            // Utilizador não está logado
             window.location.href = 'index.html';
         }
     });
@@ -186,4 +215,3 @@ function setupCommonUI(user) {
         });
     }
 }
-
