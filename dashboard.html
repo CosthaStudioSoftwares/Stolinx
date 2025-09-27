@@ -239,47 +239,32 @@
                     const dashboardTitle = document.getElementById('dashboard-title');
                     
                     // =======================================================
-                    // === LÓGICA DE PAGAMENTO E ASSINATURA ===
+                    // === LÓGICA DE PAGAMENTO E ASSINATURA (VERSÃO ANTERIOR) ===
                     // =======================================================
                     const renewBtn = document.getElementById('renew-subscription-btn');
                     const functions = firebase.functions();
 
-                    renewBtn.addEventListener('click', async () => {
+                    renewBtn.addEventListener('click', () => {
                         showAppNotification('Aguarde, estamos gerando seu link de pagamento...', 'Aguarde');
                         
-                        try {
-                            const user = firebase.auth().currentUser;
-                            if (!user) {
-                                showAppNotification('Erro: Usuário não autenticado.');
-                                return;
-                            }
-                            
-                            const idToken = await user.getIdToken();
-                            const functionsUrl = 'https://us-central1-stolinx-d6e26.cloudfunctions.net/createPagbankOrder';
-
-                            const response = await fetch(functionsUrl, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                // CORREÇÃO CRÍTICA: Envia o token no formato que o servidor espera.
-                                body: JSON.stringify({ token: idToken })
+                        // Chama a Cloud Function que criamos
+                        const createOrder = functions.httpsCallable('createPagbankOrder');
+                        createOrder()
+                            .then((result) => {
+                                const paymentLink = result.data.paymentLink;
+                                if (paymentLink) {
+                                    // Redireciona o utilizador para o checkout do PagBank
+                                    window.location.href = paymentLink; 
+                                } else {
+                                    showAppNotification('Não foi possível obter o link de pagamento.');
+                                }
+                            })
+                            .catch((error) => {
+                                console.error("Erro ao criar pedido: ", error);
+                                showAppNotification(`Erro: ${error.message}`);
                             });
-
-                            if (!response.ok) {
-                                const errorData = await response.text();
-                                throw new Error(errorData || 'Falha na comunicação com o servidor.');
-                            }
-
-                            const result = await response.json();
-                            if (result.paymentLink) {
-                                window.location.href = result.paymentLink;
-                            } else {
-                                throw new Error('Link de pagamento não recebido.');
-                            }
-                        } catch (error) {
-                            console.error("Erro ao criar pedido: ", error);
-                            showAppNotification(`Erro: ${error.message}`);
-                        }
                     });
+
 
                     function displaySubscriptionStatus() {
                         if (!currentUserId) return; 
@@ -312,7 +297,7 @@
                                     }
                                     statusEl.innerHTML = message;
                                 } else {
-                                    // Caso o usuário exista mas nunca tenha tido uma assinatura
+                                    // Caso o utilizador exista mas nunca tenha tido uma assinatura
                                     statusEl.innerHTML = `Sua conta não possui uma assinatura ativa.`;
                                 }
                             }
@@ -464,4 +449,3 @@
     </script>
 </body>
 </html>
-
