@@ -209,7 +209,6 @@
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <!-- ALTERAÇÃO: Adicionado SDK do App Check -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app-check.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
@@ -232,50 +231,53 @@
                     const dashboardTitle = document.getElementById('dashboard-title');
                     
                     // =======================================================
-                    // === LÓGICA DE PAGAMENTO E ASSINATURA ===
+                    // === LÓGICA DE PAGAMENTO E ASSINATURA (MODIFICADA) ===
                     // =======================================================
                     const renewBtn = document.getElementById('renew-subscription-btn');
                     const functions = firebase.functions();
 
-                    renewBtn.addEventListener('click', () => {
+                    renewBtn.addEventListener('click', async () => {
                         showAppNotification('Aguarde, estamos gerando seu link de pagamento...', 'Processando');
                         
-                        // Chama a Cloud Function que criamos
-                        const createOrder = functions.httpsCallable('createPagbankOrder');
-                        createOrder()
-                            .then((result) => {
-                                const paymentLink = result.data.paymentLink;
-                                if (paymentLink) {
-                                    // Redireciona o usuário para o checkout do PagBank
-                                    window.location.href = paymentLink; 
-                                } else {
-                                    showAppNotification('Não foi possível obter o link de pagamento.');
-                                }
-                            })
-                            .catch((error) => {
-                                console.error("Erro ao criar pedido: ", error);
-                                // O erro "unauthenticated" é o que corrigimos com o App Check.
-                                if(error.code === 'functions/unauthenticated') {
-                                     showAppNotification(`Erro de autenticação. Por favor, recarregue a página e tente novamente.`);
-                                } else {
-                                     showAppNotification(`Erro: ${error.message}`);
-                                }
-                            });
+                        try {
+                            const user = firebase.auth().currentUser;
+                            if (!user) {
+                                showAppNotification('Erro: Usuário não encontrado. Por favor, faça login novamente.');
+                                return;
+                            }
+                    
+                            // Pega o token de autenticação do usuário. Isso prova quem ele é.
+                            const idToken = await user.getIdToken(true);
+
+                            // Chama a Cloud Function, agora enviando o token para verificação manual.
+                            const createOrder = functions.httpsCallable('createPagbankOrder');
+                            const result = await createOrder({ token: idToken }); // Enviamos o token no corpo da requisição
+
+                            const paymentLink = result.data.paymentLink;
+                            if (paymentLink) {
+                                window.location.href = paymentLink;
+                            } else {
+                                showAppNotification('Não foi possível obter o link de pagamento.');
+                            }
+                        } catch (error) {
+                            console.error("Erro ao criar pedido: ", error);
+                            showAppNotification(`Erro: ${error.message}`);
+                        }
                     });
 
                     function displaySubscriptionStatus() {
+                        // (Código original sem alterações)
                         if (!currentUserId) return; 
                         const userRef = db.collection('users').doc(currentUserId);
                         const statusEl = document.getElementById('subscription-status');
 
-                        userRef.onSnapshot(doc => { // Usando onSnapshot para atualizar em tempo real
+                        userRef.onSnapshot(doc => { 
                             if (doc.exists) {
                                 const userData = doc.data();
                                 if (userData && userData.active && userData.expiresAt) {
                                     const expiresDate = userData.expiresAt.toDate();
                                     const now = new Date();
                                     
-                                    // Zera a hora para comparar apenas os dias
                                     now.setHours(0, 0, 0, 0);
                                     expiresDate.setHours(0, 0, 0, 0);
 
@@ -296,7 +298,6 @@
                                     }
                                     statusEl.innerHTML = message;
                                 } else {
-                                    // Caso o usuário exista mas nunca tenha tido uma assinatura
                                     statusEl.innerHTML = `<span class="days-remaining danger">Sua conta não possui uma assinatura ativa.</span>`;
                                 }
                             }
@@ -425,16 +426,11 @@
                         });
                     }
 
-                    async function exportDashboardData() {
-                        // (Seu código original de exportar dados - sem alterações)
-                    }
-
-                    function exportDashboardPDF() {
-                        // (Seu código original de exportar PDF - sem alterações)
-                    }
+                    async function exportDashboardData() { /* Código original */ }
+                    function exportDashboardPDF() { /* Código original */ }
                     
                     // --- INITIALIZATION ---
-                    displaySubscriptionStatus(); // Chama a função de status da assinatura
+                    displaySubscriptionStatus(); 
                     filtroMes.addEventListener('change', atualizarDashboard);
                     filtroAno.addEventListener('change', atualizarDashboard);
                     exportBtn.addEventListener('click', exportDashboardData);
@@ -448,3 +444,4 @@
     </script>
 </body>
 </html>
+
