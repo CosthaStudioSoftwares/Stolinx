@@ -15,9 +15,9 @@ let firestoreUnsubscribes = [];
 // --- SHARED FUNCTIONS ---
 
 /**
- * Shows a generic notification modal.
- * @param {string} message The message to display.
- * @param {string} title The title of the modal.
+ * Mostra um modal de notificação genérico.
+ * @param {string} message A mensagem a ser exibida.
+ * @param {string} title O título do modal.
  */
 function showAppNotification(message, title = 'Aviso') {
     const modal = document.getElementById('app-notification-modal');
@@ -30,10 +30,10 @@ function showAppNotification(message, title = 'Aviso') {
 }
 
 /**
- * Shows a confirmation modal with confirm/cancel buttons.
- * @param {string} message The confirmation message.
- * @param {function} onConfirm The function to execute on confirmation.
- * @param {string} title The title of the modal.
+ * Mostra um modal de confirmação com botões de confirmar/cancelar.
+ * @param {string} message A mensagem de confirmação.
+ * @param {function} onConfirm A função a ser executada na confirmação.
+ * @param {string} title O título do modal.
  */
 function showAppConfirmation(message, onConfirm, title = 'Confirmação') {
     const modal = document.getElementById('app-notification-modal');
@@ -53,8 +53,8 @@ function showAppConfirmation(message, onConfirm, title = 'Confirmação') {
 }
 
 /**
- * Formats a number input as Brazilian currency.
- * @param {HTMLInputElement} input The input element.
+ * Formata um campo de input como moeda brasileira.
+ * @param {HTMLInputElement} input O elemento de input.
  */
 function formatCurrency(input) {
     let value = input.value.replace(/\D/g, '');
@@ -68,21 +68,21 @@ function formatCurrency(input) {
 
 
 /**
- * Returns a reference to a user-specific Firestore collection.
- * @param {string} collectionName The name of the collection.
+ * Retorna uma referência a uma coleção do Firestore específica do usuário.
+ * @param {string} collectionName O nome da coleção.
  * @returns {firebase.firestore.CollectionReference}
  */
 function getUserCollection(collectionName) {
-    if (!currentUserId) throw new Error("User not logged in!");
+    if (!currentUserId) throw new Error("Usuário não está logado!");
     return db.collection('users').doc(currentUserId).collection(collectionName);
 }
 
 
 /**
- * Main initialization function for authenticated pages.
- * @param {object} config Configuration object for the page.
- * @param {string} config.page The name of the current page (e.g., 'dashboard').
- * @param {function} config.init The page-specific initialization function.
+ * Função principal de inicialização para páginas autenticadas.
+ * @param {object} config Objeto de configuração para a página.
+ * @param {string} config.page O nome da página atual (ex: 'dashboard').
+ * @param {function} config.init A função de inicialização específica da página.
  */
 function initializeApp(config) {
     // --- Initialize Firebase ---
@@ -91,6 +91,13 @@ function initializeApp(config) {
     }
     auth = firebase.auth();
     db = firebase.firestore();
+
+    // ALTERAÇÃO: Inicializa o App Check para garantir que as chamadas para as Functions sejam autenticadas
+    const appCheck = firebase.appCheck();
+    appCheck.activate(
+        '6LfxJ9YrAAAAAHldTMTw7pMA2PPiETNIh_VviK8V', // Sua chave do reCAPTCHA v3
+        true);
+
 
     // --- Authentication Check ---
     auth.onAuthStateChanged(user => {
@@ -102,31 +109,40 @@ function initializeApp(config) {
                 if (doc.exists) {
                     const userData = doc.data();
                     const now = new Date();
-                    if (userData.active && userData.expiresAt && userData.expiresAt.toDate() > now) {
-                        // User is active and can stay, run page-specific logic
+                    const isSubscriptionActive = userData.active && userData.expiresAt && userData.expiresAt.toDate() > now;
+                    
+                    // ALTERAÇÃO: Lógica de redirecionamento ajustada.
+                    // Permite que o usuário acesse o dashboard mesmo com a assinatura expirada para que ele possa renovar.
+                    // Se a assinatura estiver expirada e ele tentar acessar outra página, será redirecionado para o dashboard.
+                    if (isSubscriptionActive || config.page === 'dashboard') {
+                        // Usuário pode continuar para a página solicitada
                         setupCommonUI(user);
                         if (config.init && typeof config.init === 'function') {
                             config.init();
                         }
                     } else {
-                        // Subscription expired or not active
-                        window.location.href = 'ativacao.html';
+                        // Assinatura expirada e tentando acessar uma página protegida
+                        // Mostra um aviso e redireciona para o dashboard
+                        showAppNotification('Sua assinatura expirou. Renove para acessar esta funcionalidade.', 'Aviso');
+                        setTimeout(() => {
+                           window.location.href = 'dashboard.html';
+                        }, 3000); // Espera 3s para o usuário ler a mensagem
                     }
                 } else {
-                     // Should not happen if user is logged in, but as a fallback...
+                    // Fallback: se o documento do usuário não existir, redireciona para o login
                     window.location.href = 'index.html';
                 }
             });
         } else {
-            // User is not logged in
+            // Usuário não está logado
             window.location.href = 'index.html';
         }
     });
 }
 
 /**
- * Sets up common UI elements like sidebar, theme, and logout.
- * @param {firebase.User} user The authenticated user object.
+ * Configura elementos de UI comuns como a barra lateral, tema e logout.
+ * @param {firebase.User} user O objeto do usuário autenticado.
  */
 function setupCommonUI(user) {
     // --- Sidebar and Menu ---
@@ -139,22 +155,17 @@ function setupCommonUI(user) {
     // --- Theme Toggler ---
     const themeTogglerLink = document.getElementById('theme-toggler-link');
     
-    // Define o ícone correto na hora que a página carrega, evitando a "piscada"
     if (document.documentElement.classList.contains('dark-theme')) {
         themeTogglerLink.querySelector('span').textContent = 'dark_mode';
     }
 
-    // Adiciona o evento de clique para alternar o tema
     themeTogglerLink.addEventListener('click', (e) => {
         e.preventDefault();
         
-        // Alterna a classe na tag <html>, que é o lugar correto agora
         document.documentElement.classList.toggle('dark-theme');
         
-        // Verifica qual é o novo estado do tema (claro ou escuro)
         const isDark = document.documentElement.classList.contains('dark-theme');
 
-        // Atualiza o ícone e salva a preferência no localStorage
         themeTogglerLink.querySelector('span').textContent = isDark ? 'dark_mode' : 'light_mode';
         localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
     });
