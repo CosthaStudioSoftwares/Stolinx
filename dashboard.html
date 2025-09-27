@@ -41,16 +41,10 @@
         #subscription-status .days-remaining.danger { color: var(--color-danger); font-weight: 600; }
     </style>
 
-    <!-- Cor da barra de status em navegadores mobile -->
+    <!-- PWA -->
     <meta name="theme-color" content="#009688">
-
-    <!-- Link para o manifest.json -->
     <link rel="manifest" href="manifest.json">
-
-    <!-- Ícone para dispositivos Apple -->
     <link rel="apple-touch-icon" href="icon-192x192.png">
-
-    <!-- Script para registrar o Service Worker -->
     <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -215,9 +209,10 @@
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <!-- ALTERAÇÃO: Adicionado SDK do App Check -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app-check.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-    <!-- SDK DO FIREBASE FUNCTIONS (ESSENCIAL PARA PAGAMENTO) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-functions.js"></script>
     <!-- Bibliotecas para gerar PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -237,13 +232,13 @@
                     const dashboardTitle = document.getElementById('dashboard-title');
                     
                     // =======================================================
-                    // === NOVA LÓGICA DE PAGAMENTO E ASSINATURA ===
+                    // === LÓGICA DE PAGAMENTO E ASSINATURA ===
                     // =======================================================
                     const renewBtn = document.getElementById('renew-subscription-btn');
                     const functions = firebase.functions();
 
                     renewBtn.addEventListener('click', () => {
-                        showAppNotification('Aguarde, estamos gerando seu link de pagamento...', 'info');
+                        showAppNotification('Aguarde, estamos gerando seu link de pagamento...', 'Processando');
                         
                         // Chama a Cloud Function que criamos
                         const createOrder = functions.httpsCallable('createPagbankOrder');
@@ -259,7 +254,12 @@
                             })
                             .catch((error) => {
                                 console.error("Erro ao criar pedido: ", error);
-                                showAppNotification(`Erro: ${error.message}`);
+                                // O erro "unauthenticated" é o que corrigimos com o App Check.
+                                if(error.code === 'functions/unauthenticated') {
+                                     showAppNotification(`Erro de autenticação. Por favor, recarregue a página e tente novamente.`);
+                                } else {
+                                     showAppNotification(`Erro: ${error.message}`);
+                                }
                             });
                     });
 
@@ -274,6 +274,8 @@
                                 if (userData && userData.active && userData.expiresAt) {
                                     const expiresDate = userData.expiresAt.toDate();
                                     const now = new Date();
+                                    
+                                    // Zera a hora para comparar apenas os dias
                                     now.setHours(0, 0, 0, 0);
                                     expiresDate.setHours(0, 0, 0, 0);
 
@@ -295,7 +297,7 @@
                                     statusEl.innerHTML = message;
                                 } else {
                                     // Caso o usuário exista mas nunca tenha tido uma assinatura
-                                    statusEl.innerHTML = `Sua conta não possui uma assinatura ativa.`;
+                                    statusEl.innerHTML = `<span class="days-remaining danger">Sua conta não possui uma assinatura ativa.</span>`;
                                 }
                             }
                         }, error => {
@@ -304,7 +306,7 @@
                         });
                     }
                     // =======================================================
-                    // === FIM DA NOVA LÓGICA ===
+                    // === FIM DA LÓGICA DE ASSINATURA ===
                     // =======================================================
 
                     function populateDateFilters() {
@@ -432,7 +434,7 @@
                     }
                     
                     // --- INITIALIZATION ---
-                    displaySubscriptionStatus(); // Chama a nova função
+                    displaySubscriptionStatus(); // Chama a função de status da assinatura
                     filtroMes.addEventListener('change', atualizarDashboard);
                     filtroAno.addEventListener('change', atualizarDashboard);
                     exportBtn.addEventListener('click', exportDashboardData);
