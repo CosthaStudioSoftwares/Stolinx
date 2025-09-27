@@ -233,12 +233,10 @@
         }
     </style>
 
+    <!-- PWA -->
     <meta name="theme-color" content="#009688">
-
     <link rel="manifest" href="manifest.json">
-
     <link rel="apple-touch-icon" href="icon-192x192.png">
-
     <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -256,6 +254,7 @@
 </head>
 <body>
     <div class="auth-main-container">
+        <!-- Painel Esquerdo com a marca -->
         <div class="left-panel">
             <div class="branding-content">
                 <h1>Bem-vindo ao STOL<span class="danger">INX</span></h1>
@@ -263,11 +262,13 @@
             </div>
         </div>
 
+        <!-- Painel Direito com os formulários -->
         <div class="right-panel">
             <div id="auth-container">
                 <div class="auth-form-wrapper">
                     <div id="auth-message"></div>
 
+                    <!-- Formulário de Login -->
                     <form id="login-form">
                         <h1>Acesse sua Conta</h1>
                         <p>Bem-vindo de volta!</p>
@@ -282,6 +283,7 @@
                         <a class="auth-toggle-link" id="show-register">Não tem uma conta? Cadastre-se</a>
                     </form>
         
+                    <!-- Formulário de Cadastro -->
                     <form id="register-form">
                         <h1>Crie sua Conta</h1>
                         <p>É rápido e fácil.</p>
@@ -300,6 +302,8 @@
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <!-- ALTERAÇÃO: Adicionado SDK do App Check -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app-check.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
@@ -315,6 +319,13 @@
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
+        
+        // ALTERAÇÃO: Inicializa o App Check para verificar a integridade do app
+        const appCheck = firebase.appCheck();
+        appCheck.activate(
+            '6LfxJ9YrAAAAAHldTMTw7pMA2PPiETNIh_VviK8V', // Sua chave do reCAPTCHA v3
+            true);
+
         const auth = firebase.auth();
         const db = firebase.firestore();
 
@@ -351,7 +362,7 @@
             setTimeout(() => {
                 registerForm.style.display = 'none';
                 loginForm.style.display = 'block';
-                    setTimeout(() => {
+                 setTimeout(() => {
                     loginForm.style.opacity = '1';
                     loginForm.style.transform = 'scale(1)';
                 }, 50);
@@ -406,7 +417,8 @@
                         document.getElementById('show-login').click();
                         setTimeout(() => {
                             showAuthMessage('Este e-mail já está cadastrado. Por favor, insira sua senha para entrar.');
-                        }, 500);
+                        }, 500); 
+
                     } else {
                         let message = 'Ocorreu um erro ao criar a conta.';
                         if (error.code === 'auth/weak-password') {
@@ -445,7 +457,7 @@
             if (user) {
                 if (!user.emailVerified) {
                     showAuthMessage('Por favor, verifique seu e-mail para continuar. Olhe sua caixa de entrada ou spam.');
-                    // Mantém o usuário na tela de login mas não o desloga, para que ele possa tentar novamente após verificar
+                    auth.signOut();
                     return;
                 }
 
@@ -454,23 +466,19 @@
                     if (doc.exists) {
                         const userData = doc.data();
                         const now = new Date();
-                        
-                        // ALTERAÇÃO PRINCIPAL: Se o usuário estiver ativo, vai para o dashboard.
-                        // Se não estiver, TAMBÉM VAI PARA O DASHBOARD para poder renovar.
                         if (userData.active && userData.expiresAt && userData.expiresAt.toDate() > now) {
                             window.location.href = 'dashboard.html';
                         } else {
-                            // Redireciona para o dashboard mesmo se a conta estiver inativa/expirada
-                            window.location.href = 'dashboard.html';
+                            // Se a assinatura não estiver ativa, o usuário é direcionado para o dashboard para renovar.
+                            // A lógica no dashboard.html cuidará de exibir o status correto.
+                            window.location.href = 'dashboard.html'; 
                         }
                     } else {
-                        // Se for um usuário novo (primeiro login após verificação), cria o documento e redireciona.
-                        userRef.set({
+                         userRef.set({
                             email: user.email,
                             active: false,
                             expiresAt: null
                         }).then(() => {
-                            // Redireciona para o dashboard para que ele possa fazer o primeiro pagamento
                             window.location.href = 'dashboard.html';
                         });
                     }
