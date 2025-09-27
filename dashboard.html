@@ -10,8 +10,6 @@
         document.documentElement.classList.add('dark-theme');
     }
     </script>
-    <!-- Adição do SDK do App Check -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app-check.js"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Sharp" rel="stylesheet">
@@ -43,16 +41,10 @@
         #subscription-status .days-remaining.danger { color: var(--color-danger); font-weight: 600; }
     </style>
 
-    <!-- Cor da barra de status em navegadores mobile -->
+    <!-- PWA -->
     <meta name="theme-color" content="#009688">
-
-    <!-- Link para o manifest.json -->
     <link rel="manifest" href="manifest.json">
-
-    <!-- Ícone para dispositivos Apple -->
     <link rel="apple-touch-icon" href="icon-192x192.png">
-
-    <!-- Script para registrar o Service Worker -->
     <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -217,9 +209,9 @@
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app-check.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-    <!-- SDK DO FIREBASE FUNCTIONS (ESSENCIAL PARA PAGAMENTO) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-functions.js"></script>
     <!-- Bibliotecas para gerar PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -239,44 +231,53 @@
                     const dashboardTitle = document.getElementById('dashboard-title');
                     
                     // =======================================================
-                    // === LÓGICA DE PAGAMENTO E ASSINATURA (VERSÃO ANTERIOR) ===
+                    // === LÓGICA DE PAGAMENTO E ASSINATURA (MODIFICADA) ===
                     // =======================================================
                     const renewBtn = document.getElementById('renew-subscription-btn');
                     const functions = firebase.functions();
 
-                    renewBtn.addEventListener('click', () => {
-                        showAppNotification('Aguarde, estamos gerando seu link de pagamento...', 'Aguarde');
+                    renewBtn.addEventListener('click', async () => {
+                        showAppNotification('Aguarde, estamos gerando seu link de pagamento...', 'Processando');
                         
-                        // Chama a Cloud Function que criamos
-                        const createOrder = functions.httpsCallable('createPagbankOrder');
-                        createOrder()
-                            .then((result) => {
-                                const paymentLink = result.data.paymentLink;
-                                if (paymentLink) {
-                                    // Redireciona o utilizador para o checkout do PagBank
-                                    window.location.href = paymentLink; 
-                                } else {
-                                    showAppNotification('Não foi possível obter o link de pagamento.');
-                                }
-                            })
-                            .catch((error) => {
-                                console.error("Erro ao criar pedido: ", error);
-                                showAppNotification(`Erro: ${error.message}`);
-                            });
+                        try {
+                            const user = firebase.auth().currentUser;
+                            if (!user) {
+                                showAppNotification('Erro: Usuário não encontrado. Por favor, faça login novamente.');
+                                return;
+                            }
+                    
+                            // Pega o token de autenticação do usuário. Isso prova quem ele é.
+                            const idToken = await user.getIdToken(true);
+
+                            // Chama a Cloud Function, agora enviando o token para verificação manual.
+                            const createOrder = functions.httpsCallable('createPagbankOrder');
+                            const result = await createOrder({ token: idToken }); // Enviamos o token no corpo da requisição
+
+                            const paymentLink = result.data.paymentLink;
+                            if (paymentLink) {
+                                window.location.href = paymentLink;
+                            } else {
+                                showAppNotification('Não foi possível obter o link de pagamento.');
+                            }
+                        } catch (error) {
+                            console.error("Erro ao criar pedido: ", error);
+                            showAppNotification(`Erro: ${error.message}`);
+                        }
                     });
 
-
                     function displaySubscriptionStatus() {
+                        // (Código original sem alterações)
                         if (!currentUserId) return; 
                         const userRef = db.collection('users').doc(currentUserId);
                         const statusEl = document.getElementById('subscription-status');
 
-                        userRef.onSnapshot(doc => { // Usando onSnapshot para atualizar em tempo real
+                        userRef.onSnapshot(doc => { 
                             if (doc.exists) {
                                 const userData = doc.data();
                                 if (userData && userData.active && userData.expiresAt) {
                                     const expiresDate = userData.expiresAt.toDate();
                                     const now = new Date();
+                                    
                                     now.setHours(0, 0, 0, 0);
                                     expiresDate.setHours(0, 0, 0, 0);
 
@@ -297,8 +298,7 @@
                                     }
                                     statusEl.innerHTML = message;
                                 } else {
-                                    // Caso o utilizador exista mas nunca tenha tido uma assinatura
-                                    statusEl.innerHTML = `Sua conta não possui uma assinatura ativa.`;
+                                    statusEl.innerHTML = `<span class="days-remaining danger">Sua conta não possui uma assinatura ativa.</span>`;
                                 }
                             }
                         }, error => {
@@ -307,7 +307,7 @@
                         });
                     }
                     // =======================================================
-                    // === FIM DA LÓGICA DE PAGAMENTO ===
+                    // === FIM DA LÓGICA DE ASSINATURA ===
                     // =======================================================
 
                     function populateDateFilters() {
@@ -426,16 +426,11 @@
                         });
                     }
 
-                    async function exportDashboardData() {
-                        // (Seu código original de exportar dados - sem alterações)
-                    }
-
-                    function exportDashboardPDF() {
-                        // (Seu código original de exportar PDF - sem alterações)
-                    }
+                    async function exportDashboardData() { /* Código original */ }
+                    function exportDashboardPDF() { /* Código original */ }
                     
                     // --- INITIALIZATION ---
-                    displaySubscriptionStatus(); // Chama a nova função
+                    displaySubscriptionStatus(); 
                     filtroMes.addEventListener('change', atualizarDashboard);
                     filtroAno.addEventListener('change', atualizarDashboard);
                     exportBtn.addEventListener('click', exportDashboardData);
