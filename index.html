@@ -1909,7 +1909,12 @@
                     });
                 }
                 
-                function exportDashboardPDF() { /* Lógica de PDF... */ }
+                function exportDashboardPDF() { 
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    // ... (Implementation from original dashboard.html)
+                    alert("Função de exportar PDF a ser implementada.");
+                }
 
                 // --- DASHBOARD INITIALIZATION ---
                 displaySubscriptionStatus();
@@ -1920,8 +1925,478 @@
                 exportPdfBtn.addEventListener('click', exportDashboardPDF);
             }
 
-            function initEstoque() { /* Lógica da página de estoque... */ }
-            function initVendas() { /* Lógica da página de vendas... */ }
+            function initEstoque() {
+                console.log("Inicializando Estoque...");
+                let todosOsProdutos = [];
+                let produtosFiltrados = [];
+                let todasAsCategorias = [];
+                let currentPage = 1;
+                const itemsPerPage = 5;
+
+                const formCadastro = document.getElementById('form-cadastro-produto');
+                const categoryModal = document.getElementById('category-modal');
+                
+                document.querySelectorAll('.currency').forEach(input => {
+                    input.addEventListener('input', () => formatCurrency(input));
+                });
+
+                document.getElementById('open-category-modal').addEventListener('click', () => categoryModal.style.display = 'flex');
+                
+                document.getElementById('add-categoria-btn').addEventListener('click', () => {
+                    const nomeInput = document.getElementById('nova-categoria-nome');
+                    const nomeCategoria = nomeInput.value.trim();
+                    if (nomeCategoria === "") {
+                        showAppNotification('Por favor, digite um nome para a categoria.');
+                        return;
+                    }
+                    getUserCollection("categorias").add({ nome: nomeCategoria })
+                        .then(() => { nomeInput.value = ""; })
+                        .catch(error => { console.error("Erro ao adicionar categoria: ", error); });
+                });
+
+                formCadastro.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const produto = {
+                        codigo: formCadastro.codigoProduto.value.trim(),
+                        nome: formCadastro.nomeProduto.value.trim(),
+                        validade: formCadastro.validade.value,
+                        quantidade: parseInt(formCadastro.quantidade.value),
+                        custo: parseFloat(formCadastro.custoProduto.value.replace(/\./g, '').replace(',', '.')),
+                        valorVenda: parseFloat(formCadastro.valorVenda.value.replace(/\./g, '').replace(',', '.')),
+                        categoria: formCadastro.categoria.value,
+                    };
+                    produto.lucroUnidade = produto.valorVenda - produto.custo;
+                    const editId = formCadastro.editProductId.value;
+
+                    try {
+                        const codigoQuery = getUserCollection("produtos").where("codigo", "==", produto.codigo).get();
+                        const nomeQuery = getUserCollection("produtos").where("nome", "==", produto.nome).get();
+                        const [codigoSnapshot, nomeSnapshot] = await Promise.all([codigoQuery, nomeQuery]);
+
+                        let codigoExists = false;
+                        codigoSnapshot.forEach(doc => { if (doc.id !== editId) codigoExists = true; });
+                        let nomeExists = false;
+                        nomeSnapshot.forEach(doc => { if (doc.id !== editId) nomeExists = true; });
+
+                        if (codigoExists) {
+                            showAppNotification('Já existe um produto cadastrado com este código.');
+                            return;
+                        }
+                        if (nomeExists) {
+                            showAppNotification('Já existe um produto cadastrado com este nome.');
+                            return;
+                        }
+                    } catch (error) {
+                        console.error("Erro ao verificar duplicados: ", error);
+                        showAppNotification("Ocorreu um erro ao verificar o produto. Tente novamente.");
+                        return;
+                    }
+
+                    if (editId) {
+                        getUserCollection("produtos").doc(editId).update(produto)
+                            .then(() => {
+                                showAppNotification("Produto atualizado com sucesso!", "Sucesso");
+                                formCadastro.reset();
+                                formCadastro.editProductId.value = '';
+                                formCadastro.querySelector('button[type="submit"]').textContent = 'Cadastrar Produto';
+                            })
+                            .catch((error) => console.error("Erro ao atualizar: ", error));
+                    } else {
+                        produto.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                        getUserCollection("produtos").add(produto)
+                            .then(() => {
+                                showAppNotification("Produto cadastrado com sucesso!", "Sucesso");
+                                formCadastro.reset();
+                            })
+                            .catch((error) => console.error("Erro ao cadastrar: ", error));
+                    }
+                });
+
+                function carregarCategorias() {
+                    const unsub = getUserCollection("categorias").orderBy("nome").onSnapshot(snapshot => {
+                        todasAsCategorias = [];
+                        const selectCategoria = document.getElementById('categoria');
+                        const listaCategoriasUl = document.getElementById('lista-categorias');
+                        selectCategoria.innerHTML = "";
+                        listaCategoriasUl.innerHTML = "";
+                        if (snapshot.empty) {
+                            selectCategoria.innerHTML = '<option>Nenhuma categoria</option>';
+                            listaCategoriasUl.innerHTML = '<li>Nenhuma categoria cadastrada.</li>';
+                            return;
+                        }
+                        snapshot.forEach(doc => {
+                            const categoria = doc.data();
+                            todasAsCategorias.push({id: doc.id, ...categoria});
+                            selectCategoria.innerHTML += `<option value="${categoria.nome}">${categoria.nome}</option>`;
+                            
+                            const li = document.createElement('li');
+                            li.innerHTML = `<span>${categoria.nome}</span>`;
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.className = 'btn-danger';
+                            deleteBtn.innerHTML = `<span class="material-icons-sharp">delete</span>`;
+                            deleteBtn.onclick = () => showAppConfirmation(`Tem certeza que deseja excluir a categoria "${categoria.nome}"?`, () => {
+                                getUserCollection("categorias").doc(doc.id).delete();
+                            });
+                            const actionDiv = document.createElement('div');
+                            actionDiv.className = 'action-buttons';
+                            actionDiv.appendChild(deleteBtn);
+                            li.appendChild(actionDiv);
+                            listaCategoriasUl.appendChild(li);
+                        });
+                    });
+                    firestoreUnsubscribes.push(unsub);
+                }
+                
+                function carregarProdutos() {
+                    const unsub = getUserCollection("produtos").onSnapshot((querySnapshot) => {
+                        let produtosTemp = [];
+                        querySnapshot.forEach((doc) => produtosTemp.push({ id: doc.id, ...doc.data() }));
+                        todosOsProdutos = produtosTemp.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+                        filtrarErenderizar();
+                    });
+                    firestoreUnsubscribes.push(unsub);
+                }
+                
+                function renderizarTabelaEstoque() {
+                    const tabelaCorpo = document.getElementById("tabela-estoque-body");
+                    const pageInfo = document.getElementById("page-info-estoque");
+                    const prevButton = document.getElementById("prev-page-estoque");
+                    const nextButton = document.getElementById("next-page-estoque");
+
+                    tabelaCorpo.innerHTML = '';
+                    const totalPages = Math.ceil(produtosFiltrados.length / itemsPerPage);
+                    
+                    if (currentPage > totalPages) currentPage = totalPages > 0 ? totalPages : 1;
+                    
+                    const startIndex = (currentPage - 1) * itemsPerPage;
+                    const endIndex = startIndex + itemsPerPage;
+                    const paginatedItems = produtosFiltrados.slice(startIndex, endIndex);
+
+                    if (produtosFiltrados.length === 0) {
+                        tabelaCorpo.innerHTML = '<tr><td colspan="7">Nenhum produto encontrado.</td></tr>';
+                        pageInfo.textContent = 'Página 0 de 0';
+                        prevButton.disabled = true;
+                        nextButton.disabled = true;
+                        return;
+                    }
+
+                    const hoje = new Date();
+                    hoje.setHours(0, 0, 0, 0);
+
+                    paginatedItems.forEach((produto) => {
+                        const lucroUnidade = produto.lucroUnidade || (produto.valorVenda - produto.custo);
+                        const tr = document.createElement('tr');
+                        
+                        let avisoVencimento = '';
+                        if (produto.validade) {
+                            const dataValidade = new Date(produto.validade + 'T00:00:00');
+                            const diffDays = Math.ceil((dataValidade - hoje) / (1000 * 60 * 60 * 24));
+                            if (diffDays >= 0 && diffDays <= 30) {
+                                tr.classList.add('vencimento-proximo');
+                                avisoVencimento = `<span class="material-icons-sharp vencimento-aviso-icon" title="Vence em ${diffDays} dias!">warning</span>`;
+                            }
+                        }
+                        
+                        tr.innerHTML = `
+                            <td data-label="Código">${produto.codigo}</td>
+                            <td data-label="Produto">${produto.nome} ${avisoVencimento}</td>
+                            <td data-label="Qtd." class="${produto.quantidade < 3 ? 'low-stock-warning' : ''}">${produto.quantidade} ${produto.quantidade < 3 ? ' (Repor!)' : ''}</td>
+                            <td data-label="Custo">R$ ${produto.custo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            <td data-label="Venda">R$ ${produto.valorVenda.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            <td data-label="Lucro/Un.">R$ ${lucroUnidade.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                        `;
+                        const actionsTd = document.createElement('td');
+                        actionsTd.setAttribute('data-label', 'Ações');
+                        actionsTd.className = 'action-buttons';
+                        const editBtn = document.createElement('button');
+                        editBtn.className = 'btn-warning';
+                        editBtn.innerHTML = `<span class="material-icons-sharp">edit</span>`;
+                        editBtn.onclick = () => editarProduto(produto.id);
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = 'btn-danger';
+                        deleteBtn.innerHTML = `<span class="material-icons-sharp">delete</span>`;
+                        deleteBtn.onclick = () => showAppConfirmation(`Tem certeza que deseja excluir o produto "${produto.nome}"?`, () => {
+                            getUserCollection("produtos").doc(produto.id).delete();
+                        });
+                        actionsTd.appendChild(editBtn);
+                        actionsTd.appendChild(deleteBtn);
+                        tr.appendChild(actionsTd);
+                        tabelaCorpo.appendChild(tr);
+                    });
+
+                    pageInfo.textContent = `Página ${currentPage} de ${totalPages}`;
+                    prevButton.disabled = currentPage === 1;
+                    nextButton.disabled = currentPage === totalPages || totalPages === 0;
+                }
+
+                function filtrarErenderizar() {
+                    const filtro = document.getElementById('searchEstoque').value.toUpperCase();
+                    if (!filtro) {
+                        produtosFiltrados = [...todosOsProdutos];
+                    } else {
+                        const hoje = new Date();
+                        hoje.setHours(0, 0, 0, 0);
+                        produtosFiltrados = todosOsProdutos.filter(produto => {
+                            if (produto.codigo.toUpperCase().includes(filtro) || produto.nome.toUpperCase().includes(filtro)) return true;
+                            if ("VENCENDO".startsWith(filtro)) {
+                                if (produto.validade) {
+                                    const dataValidade = new Date(produto.validade + 'T00:00:00');
+                                    const diffDays = Math.ceil((dataValidade - hoje) / (1000 * 60 * 60 * 24));
+                                    if (diffDays >= 0 && diffDays <= 30) return true;
+                                }
+                            }
+                            if ("REPOR".startsWith(filtro) && produto.quantidade < 3) return true;
+                            return false;
+                        });
+                    }
+                    renderizarTabelaEstoque();
+                }
+
+                function editarProduto(id) {
+                    getUserCollection('produtos').doc(id).get().then(doc => {
+                        if (doc.exists) {
+                            const p = doc.data();
+                            formCadastro.editProductId.value = id;
+                            formCadastro.codigoProduto.value = p.codigo;
+                            formCadastro.nomeProduto.value = p.nome;
+                            formCadastro.validade.value = p.validade;
+                            formCadastro.quantidade.value = p.quantidade;
+                            formCadastro.custoProduto.value = p.custo.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                            formCadastro.valorVenda.value = p.valorVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                            formCadastro.categoria.value = p.categoria;
+                            formCadastro.querySelector('button[type="submit"]').textContent = 'Salvar Alterações';
+                            formCadastro.scrollIntoView({ behavior: 'smooth' });
+                        }
+                    });
+                }
+
+                function exportEstoquePDF() { /* Lógica de PDF... */ }
+
+                // --- ESTOQUE INITIALIZATION ---
+                document.getElementById('searchEstoque').addEventListener('keyup', () => {
+                    currentPage = 1;
+                    filtrarErenderizar();
+                });
+                document.getElementById('prev-page-estoque').addEventListener('click', () => {
+                    if (currentPage > 1) {
+                        currentPage--;
+                        renderizarTabelaEstoque();
+                    }
+                });
+                document.getElementById('next-page-estoque').addEventListener('click', () => {
+                    const totalPages = Math.ceil(produtosFiltrados.length / itemsPerPage);
+                    if (currentPage < totalPages) {
+                        currentPage++;
+                        renderizarTabelaEstoque();
+                    }
+                });
+                document.getElementById('export-estoque-pdf-btn').addEventListener('click', exportEstoquePDF);
+                carregarCategorias();
+                carregarProdutos();
+            }
+
+            function initVendas() {
+                console.log("Inicializando Vendas...");
+                let orcamento = [];
+                let todasAsVendas = [], vendasFiltradas = [];
+                let currentPageVendas = 1;
+                const itemsPerPageVendas = 5;
+                let todosOsProdutos = [];
+                let produtoSelecionado = null;
+
+                const descontoManualInput = document.getElementById('descontoVenda');
+                const descontoPercentInput = document.getElementById('descontoPorcentagem');
+                const tipoDescontoRSBtn = document.getElementById('tipo-desconto-rs');
+                const tipoDescontoPorcentoBtn = document.getElementById('tipo-desconto-porcento');
+                const descontoRSContainer = document.getElementById('desconto-rs-container');
+                const descontoPorcentoContainer = document.getElementById('desconto-porcento-container');
+                const pesquisaInput = document.getElementById('pesquisaProdutoVenda');
+                const sugestoesContainer = document.getElementById('sugestoes-produtos-container');
+                const telefoneInput = document.getElementById('telefoneCliente');
+                const pesquisaVendaInput = document.getElementById('pesquisa-venda-cliente');
+                const filtroDataInicio = document.getElementById('filtro-data-inicio');
+                const filtroDataFim = document.getElementById('filtro-data-fim');
+                const limparFiltroBtn = document.getElementById('limpar-filtro-data');
+                
+                document.querySelectorAll('.currency').forEach(input => {
+                    input.addEventListener('input', () => formatCurrency(input));
+                });
+                
+                telefoneInput.addEventListener('input', (e) => {
+                    let value = e.target.value.replace(/\D/g, '');
+                    value = value.replace(/^(\d{2})(\d)/g, '($1) $2');
+                    value = value.replace(/(\d{5})(\d)/, '$1-$2');
+                    value = value.replace(/(\d)(\d{4})$/, '$1-$2');
+                    e.target.value = value;
+                });
+
+                function carregarProdutosParaVenda() {
+                    const unsub = getUserCollection("produtos").orderBy("nome").onSnapshot((querySnapshot) => {
+                        todosOsProdutos = [];
+                        querySnapshot.forEach((doc) => {
+                            const produto = doc.data();
+                            if (produto.quantidade > 0) todosOsProdutos.push({ id: doc.id, ...produto });
+                        });
+                    });
+                    firestoreUnsubscribes.push(unsub);
+                }
+
+                function atualizarTabelaOrcamento() {
+                    const orcamentoBody = document.getElementById('orcamento-body');
+                    orcamentoBody.innerHTML = '';
+                    let subtotal = 0;
+
+                    orcamento.forEach((item, index) => {
+                        const itemSubtotal = item.qtd * item.preco;
+                        subtotal += itemSubtotal;
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td data-label="Produto">${item.nome}</td>
+                            <td data-label="Qtd.">${item.qtd}</td>
+                            <td data-label="Preço Unit.">R$ ${item.preco.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            <td data-label="Subtotal">R$ ${itemSubtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                        `;
+                        const actionTd = document.createElement('td');
+                        actionTd.setAttribute('data-label', 'Ação');
+                        actionTd.className = 'action-buttons';
+                        const removeBtn = document.createElement('button');
+                        removeBtn.className = 'btn-danger';
+                        removeBtn.innerHTML = `<span class="material-icons-sharp">close</span>`;
+                        removeBtn.onclick = () => {
+                            orcamento.splice(index, 1);
+                            atualizarTabelaOrcamento();
+                        };
+                        actionTd.appendChild(removeBtn);
+                        tr.appendChild(actionTd);
+                        orcamentoBody.appendChild(tr);
+                    });
+                    
+                    document.getElementById('subtotal-venda').textContent = `R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                    
+                    let descontoFinal = 0;
+                    if (tipoDescontoPorcentoBtn.classList.contains('active')) {
+                        const descontoPercent = parseFloat(descontoPercentInput.value) || 0;
+                        if (descontoPercent > 0) descontoFinal = subtotal * (descontoPercent / 100);
+                    } else {
+                        descontoFinal = parseFloat(descontoManualInput.value.replace(/\./g, '').replace(',', '.')) || 0;
+                    }
+
+                    const total = subtotal - descontoFinal;
+                    document.getElementById('total-venda').textContent = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                }
+
+                pesquisaInput.addEventListener('input', () => {
+                    const termo = pesquisaInput.value.toLowerCase();
+                    sugestoesContainer.innerHTML = '';
+                    produtoSelecionado = null;
+                    if (termo.length === 0) {
+                        sugestoesContainer.style.display = 'none';
+                        return;
+                    }
+                    const produtosFiltrados = todosOsProdutos.filter(p => p.nome.toLowerCase().includes(termo));
+                    if (produtosFiltrados.length > 0) {
+                        produtosFiltrados.forEach(produto => {
+                            const itemDiv = document.createElement('div');
+                            itemDiv.className = 'sugestao-item';
+                            itemDiv.textContent = `${produto.nome} (Estoque: ${produto.quantidade}) - R$ ${produto.valorVenda.toFixed(2)}`;
+                            itemDiv.addEventListener('click', () => {
+                                pesquisaInput.value = produto.nome;
+                                produtoSelecionado = produto;
+                                sugestoesContainer.style.display = 'none';
+                            });
+                            sugestoesContainer.appendChild(itemDiv);
+                        });
+                        sugestoesContainer.style.display = 'block';
+                    } else {
+                        sugestoesContainer.style.display = 'none';
+                    }
+                });
+                
+                document.addEventListener('click', (e) => {
+                    if (!pesquisaInput.contains(e.target)) sugestoesContainer.style.display = 'none';
+                });
+
+                document.getElementById('addItemOrcamento').addEventListener('click', () => {
+                    if (!produtoSelecionado) {
+                        showAppNotification('Por favor, pesquise e selecione um produto da lista.');
+                        return;
+                    }
+                    orcamento.push({
+                        id: produtoSelecionado.id,
+                        nome: produtoSelecionado.nome,
+                        qtd: parseInt(document.getElementById('quantidadeVenda').value),
+                        preco: parseFloat(produtoSelecionado.valorVenda),
+                        custo: parseFloat(produtoSelecionado.custo)
+                    });
+                    atualizarTabelaOrcamento();
+                    pesquisaInput.value = '';
+                    produtoSelecionado = null;
+                });
+                
+                document.getElementById('registrar-venda-btn').addEventListener('click', () => {
+                    if (orcamento.length === 0) {
+                        showAppNotification('Adicione pelo menos um item para registrar a venda.');
+                        return;
+                    }
+                    const totalVenda = parseFloat(document.getElementById('total-venda').textContent.replace('R$ ', '').replace(/\./g, '').replace(',', '.'));
+                    const venda = {
+                        cliente: document.getElementById('nomeCliente').value || 'Não informado',
+                        telefone: document.getElementById('telefoneCliente').value || '',
+                        data: firebase.firestore.FieldValue.serverTimestamp(),
+                        itens: orcamento,
+                        subtotal: parseFloat(document.getElementById('subtotal-venda').textContent.replace('R$ ', '').replace(/\./g, '').replace(',', '.')),
+                        desconto: totalVenda - orcamento.reduce((acc, item) => acc + (item.preco * item.qtd), 0),
+                        total: totalVenda,
+                        lucro: totalVenda - orcamento.reduce((total, item) => total + (item.custo * item.qtd), 0),
+                        formaPagamento: document.getElementById('formaPagamento').value
+                    };
+                    const batch = db.batch();
+                    batch.set(getUserCollection('vendas').doc(), venda);
+                    orcamento.forEach(item => {
+                        const produtoRef = getUserCollection('produtos').doc(item.id);
+                        batch.update(produtoRef, { quantidade: firebase.firestore.FieldValue.increment(-item.qtd) });
+                    });
+                    batch.commit().then(() => {
+                        showAppNotification('Venda registrada com sucesso!', 'Sucesso');
+                        orcamento = [];
+                        document.getElementById('nomeCliente').value = '';
+                        document.getElementById('telefoneCliente').value = '';
+                        descontoManualInput.value = '';
+                        descontoPercentInput.value = '';
+                        atualizarTabelaOrcamento();
+                    }).catch(error => console.error('Erro ao registrar a venda: ', error));
+                });
+
+                document.getElementById('share-whatsapp').addEventListener('click', () => {
+                    if (orcamento.length === 0) {
+                        showAppNotification('Adicione itens ao orçamento para compartilhar.');
+                        return;
+                    }
+                    let cliente = document.getElementById('nomeCliente').value || 'Cliente';
+                    let total = document.getElementById('total-venda').innerText;
+                    let texto = `*Orçamento para ${cliente}*\n\n`;
+                    orcamento.forEach(item => {
+                        texto += `- ${item.qtd}x ${item.nome}: R$ ${(item.qtd * item.preco).toLocaleString('pt-BR', {minimumFractionDigits: 2})}\n`;
+                    });
+                    texto += `\n*Total: ${total}*`;
+                    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+                });
+                
+                document.getElementById('share-pedido-link-btn').addEventListener('click', () => {
+                    const url = `${window.location.origin}/pedido.html?user=${currentUserId}`;
+                    const mensagem = `Olá! 😊\n\nEstou enviando o link da nossa loja para você fazer seu pedido de forma fácil e rápida. Basta escolher os produtos e as quantidades que desejar!\n\nClique aqui: ${url}\n\nQualquer dúvida, é só me chamar!`;
+                    window.open(`https://wa.me/?text=${encodeURIComponent(mensagem)}`, '_blank');
+                });
+
+                // ... (Demais funções e listeners da página de Vendas)
+
+                // --- VENDAS INITIALIZATION ---
+                document.getElementById('dataVenda').value = new Date().toLocaleDateString('pt-BR');
+                carregarProdutosParaVenda();
+                // carregarHistoricoVendas(); // Adicionar lógica de histórico
+                // carregarPedidosPendentes(); // Adicionar lógica de pedidos pendentes
+            }
+
 
             // =============================================================================
             // ============================ APP ENTRY POINT ================================
