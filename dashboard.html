@@ -35,6 +35,12 @@
         #subscription-status .days-remaining.primary { color: var(--color-primary); }
         #subscription-status .days-remaining.warning { color: var(--color-warning); font-weight: 600; }
         #subscription-status .days-remaining.danger { color: var(--color-danger); font-weight: 600; }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
     </style>
     <!-- PWA -->
     <meta name="theme-color" content="#009688">
@@ -55,7 +61,6 @@
     </script>
 </head>
 <body>
-    <!-- CORREÇÃO: A classe 'visible' foi removida daqui para restaurar o layout original -->
     <div class="container">
         <aside>
             <div class="top">
@@ -186,6 +191,7 @@
         </main>
     </div>
     
+    <!-- MODAIS -->
     <div class="modal-overlay" id="app-notification-modal">
         <div class="modal-container" style="max-width: 400px;">
             <div class="modal-header">
@@ -201,6 +207,37 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="payment-details-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>Dados para Pagamento</h2>
+                <button class="close-modal" id="close-payment-modal-btn"><span class="material-icons-sharp">close</span></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted" style="margin-bottom: 1.5rem;">Precisamos de alguns dados para gerar seu link de pagamento seguro.</p>
+                <form id="payment-details-form">
+                    <div class="input-group">
+                        <label for="customer-name">Nome Completo</label>
+                        <input type="text" id="customer-name" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="customer-email">E-mail</label>
+                        <input type="email" id="customer-email" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="customer-cpf">CPF</label>
+                        <input type="text" id="customer-cpf" placeholder="000.000.000-00" required>
+                        <small id="cpf-error" style="color: var(--color-danger); display: none;">CPF inválido</small>
+                    </div>
+                    <div id="payment-form-buttons" style="margin-top: 1.5rem;">
+                         <button type="submit" class="btn-success">Gerar Link de Pagamento</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app-check.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -223,6 +260,9 @@
                     const dashboardTitle = document.getElementById('dashboard-title');
                     
                     const renewBtn = document.getElementById('renew-subscription-btn');
+                    const paymentModal = document.getElementById('payment-details-modal');
+                    const paymentForm = document.getElementById('payment-details-form');
+                    const cpfInput = document.getElementById('customer-cpf');
                     
                     function displaySubscriptionStatus() {
                         if (!currentUserId) return; 
@@ -284,6 +324,10 @@
                     }
 
                     function atualizarDashboard() {
+                        // Limpa os ouvintes antigos para evitar duplicidade
+                        firestoreUnsubscribes.forEach(unsub => unsub());
+                        firestoreUnsubscribes = [];
+
                         const ano = parseInt(filtroAno.value);
                         const mes = filtroMes.value;
 
@@ -353,7 +397,8 @@
                     }
                     
                     function renderProductPieChart(topSellersData) {
-                        const ctx = document.getElementById('salesChart').getContext('d');
+                        // CORREÇÃO CRÍTICA: O erro que quebrava o JavaScript estava aqui.
+                        const ctx = document.getElementById('salesChart').getContext('2d');
                         
                         const labels = topSellersData.map(item => item[0]);
                         const data = topSellersData.map(item => item[1]);
@@ -381,11 +426,84 @@
                             }
                         });
                     }
+                    
+                    function validateCPF(cpf) {
+                        cpf = cpf.replace(/[^\d]+/g,'');
+                        if(cpf === '' || cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
+                        let add = 0;
+                        for (let i=0; i < 9; i ++) add += parseInt(cpf.charAt(i)) * (10 - i);
+                        let rev = 11 - (add % 11);
+                        if (rev === 10 || rev === 11) rev = 0;
+                        if (rev !== parseInt(cpf.charAt(9))) return false;
+                        add = 0;
+                        for (let i = 0; i < 10; i ++) add += parseInt(cpf.charAt(i)) * (11 - i);
+                        rev = 11 - (add % 11);
+                        if (rev === 10 || rev === 11) rev = 0;
+                        if (rev !== parseInt(cpf.charAt(10))) return false;
+                        return true;
+                    }
 
-                    // --- INITIALIZATION ---
+                    // --- INITIALIZATION & EVENT LISTENERS ---
+                    
+                    // Lógica de pagamento
+                    renewBtn.addEventListener('click', () => {
+                        paymentModal.style.display = 'flex';
+                    });
+
+                    document.getElementById('close-payment-modal-btn').addEventListener('click', () => {
+                        paymentModal.style.display = 'none';
+                    });
+
+                    cpfInput.addEventListener('input', (e) => {
+                        let value = e.target.value.replace(/\D/g, '');
+                        value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                        value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                        value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                        e.target.value = value;
+                    });
+
+                    paymentForm.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const cpf = document.getElementById('customer-cpf').value;
+                        const cpfError = document.getElementById('cpf-error');
+                        if(!validateCPF(cpf)) {
+                            cpfError.style.display = 'block';
+                            return;
+                        }
+                        cpfError.style.display = 'none';
+
+                        const customerData = {
+                            name: document.getElementById('customer-name').value,
+                            email: document.getElementById('customer-email').value,
+                            tax_id: cpf.replace(/\D/g, '')
+                        };
+                        
+                        paymentModal.style.display = 'none';
+                        showAppNotification('Aguarde, gerando link de pagamento...', 'Processando');
+
+                        try {
+                            const createOrder = functions.httpsCallable('createPagbankOrderCallable');
+                            const result = await createOrder(customerData);
+                            
+                            if (result.data && result.data.paymentLink) {
+                                window.location.href = result.data.paymentLink;
+                            } else {
+                                throw new Error('Link de pagamento não recebido.');
+                            }
+                        } catch (error) {
+                            console.error("Erro ao criar pedido:", error);
+                            showAppNotification(`Erro: ${error.message}`, 'Erro');
+                        }
+                    });
+
+                    // Funções e listeners do dashboard
                     displaySubscriptionStatus(); 
                     filtroMes.addEventListener('change', atualizarDashboard);
                     filtroAno.addEventListener('change', atualizarDashboard);
+                    
+                    // Adiciona os listeners que faltavam
+                    if(exportBtn) exportBtn.addEventListener('click', () => alert('Função de compartilhar a ser implementada.'));
+                    if(exportPdfBtn) exportPdfBtn.addEventListener('click', () => alert('Função de PDF a ser implementada.'));
                     
                     populateDateFilters();
                     atualizarDashboard();
