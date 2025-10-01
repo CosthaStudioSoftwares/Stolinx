@@ -59,53 +59,52 @@ function getUserCollection(collectionName) {
 }
 
 function initializeApp(config) {
+    // --- Initialize Firebase ---
     if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
     }
     auth = firebase.auth();
     db = firebase.firestore();
-    functions = firebase.functions();
+    functions = firebase.functions(); // Adicionado para a funcionalidade de pagamento
 
+    // Ativação do App Check
     const appCheck = firebase.appCheck();
     appCheck.activate('6LfxJ9YrAAAAAHldTMTw7pMA2PPiETNIh_VviK8V', true);
 
+    // --- Authentication Check ---
     auth.onAuthStateChanged(user => {
         if (user) {
             currentUserId = user.uid;
-            
             const userRef = db.collection('users').doc(user.uid);
+
             userRef.get().then(doc => {
                 if (doc.exists) {
                     const userData = doc.data();
                     const now = new Date();
                     const isSubscriptionActive = userData.active && userData.expiresAt && userData.expiresAt.toDate() > now;
                     
-                    if (isSubscriptionActive || config.page === 'dashboard' || config.page === 'ativacao') {
-                        // 1. Torna a página visível (corrige tela em branco)
+                    // CORREÇÃO: Permite o acesso ao dashboard mesmo com a assinatura expirada, para que o usuário possa renovar.
+                    if (isSubscriptionActive || config.page === 'dashboard') {
+                        // CORREÇÃO: Torna o container principal visível para corrigir a tela em branco.
                         const container = document.querySelector('.container');
                         if(container) {
                             container.classList.add('visible');
                         }
-
-                        // 2. Configura a UI básica (corrige botões que não funcionam)
+                        
+                        // Executa a configuração da UI e a lógica da página, que já funcionavam no código antigo.
                         setupCommonUI(user);
-
-                        // 3. Executa a lógica específica da página
                         if (config.init && typeof config.init === 'function') {
                             config.init();
                         }
                     } else {
-                        // Se a assinatura estiver expirada e ele tentar acessar outra página, redireciona para o dashboard.
+                        // Se a assinatura estiver expirada e o usuário tentar acessar outra página, redireciona para o dashboard.
                         alert('Sua assinatura expirou. Renove para acessar esta funcionalidade.');
                         window.location.href = 'dashboard.html';
                     }
                 } else {
-                     // Usuário autenticado mas sem registro no Firestore, redireciona para login.
-                     window.location.href = 'index.html';
+                   // Fallback para caso o documento do usuário não exista.
+                   window.location.href = 'index.html';
                 }
-            }).catch(error => {
-                console.error("Erro ao verificar a assinatura do usuário:", error);
-                // Mesmo com erro, a UI básica já está funcional.
             });
         } else {
             // Se não houver usuário logado, redireciona para a página de login.
@@ -117,54 +116,57 @@ function initializeApp(config) {
 }
 
 function setupCommonUI(user) {
-    try {
-        const menuBtn = document.getElementById('menu-btn');
-        const closeBtn = document.getElementById('close-btn');
-        const aside = document.querySelector('aside');
-        if(menuBtn) menuBtn.addEventListener('click', () => aside.classList.add('show-sidebar'));
-        if(closeBtn) closeBtn.addEventListener('click', () => aside.classList.remove('show-sidebar'));
+    // --- Sidebar and Menu ---
+    const menuBtn = document.getElementById('menu-btn');
+    const closeBtn = document.getElementById('close-btn');
+    const aside = document.querySelector('aside');
+    if(menuBtn) menuBtn.addEventListener('click', () => aside.classList.add('show-sidebar'));
+    if(closeBtn) closeBtn.addEventListener('click', () => aside.classList.remove('show-sidebar'));
 
-        const themeTogglerLink = document.getElementById('theme-toggler-link');
-        if (themeTogglerLink) {
-            if (document.documentElement.classList.contains('dark-theme')) {
-                themeTogglerLink.querySelector('span').textContent = 'dark_mode';
+    // --- Theme Toggler ---
+    const themeTogglerLink = document.getElementById('theme-toggler-link');
+    if (themeTogglerLink) {
+        if (document.documentElement.classList.contains('dark-theme')) {
+            themeTogglerLink.querySelector('span').textContent = 'dark_mode';
+        }
+        themeTogglerLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.documentElement.classList.toggle('dark-theme');
+            const isDark = document.documentElement.classList.contains('dark-theme');
+            themeTogglerLink.querySelector('span').textContent = isDark ? 'dark_mode' : 'light_mode';
+            localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+        });
+    }
+
+    // --- Logout ---
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            firestoreUnsubscribes.forEach(unsubscribe => unsubscribe());
+            firestoreUnsubscribes = [];
+            auth.signOut();
+        });
+    }
+
+    // --- Welcome Message ---
+    const welcomeMessageEl = document.getElementById('welcome-message');
+    if (welcomeMessageEl) {
+        let userName = user.displayName || user.email.split('@')[0];
+        userName = userName.charAt(0).toUpperCase() + userName.slice(1);
+        welcomeMessageEl.textContent = `Olá, ${userName}`;
+    }
+    
+    // --- Modal Closing ---
+    const notificationModal = document.getElementById('app-notification-modal');
+    if(notificationModal) {
+        const closeBtn = document.getElementById('app-notification-close-btn');
+        if(closeBtn) closeBtn.addEventListener('click', () => notificationModal.style.display = 'none');
+        notificationModal.addEventListener('click', (e) => {
+            if (e.target === notificationModal) {
+                notificationModal.style.display = 'none';
             }
-            themeTogglerLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                document.documentElement.classList.toggle('dark-theme');
-                const isDark = document.documentElement.classList.contains('dark-theme');
-                themeTogglerLink.querySelector('span').textContent = isDark ? 'dark_mode' : 'light_mode';
-                localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
-            });
-        }
-
-        const logoutBtn = document.getElementById('logout-btn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                firestoreUnsubscribes.forEach(unsubscribe => unsubscribe());
-                firestoreUnsubscribes = [];
-                auth.signOut();
-            });
-        }
-
-        const welcomeMessageEl = document.getElementById('welcome-message');
-        if (welcomeMessageEl) {
-            let userName = user.displayName || user.email.split('@')[0];
-            userName = userName.charAt(0).toUpperCase() + userName.slice(1);
-            welcomeMessageEl.textContent = `Olá, ${userName}`;
-        }
-        
-        const notificationModal = document.getElementById('app-notification-modal');
-        if(notificationModal) {
-            const closeBtn = document.getElementById('app-notification-close-btn');
-            if(closeBtn) closeBtn.addEventListener('click', () => notificationModal.style.display = 'none');
-            notificationModal.addEventListener('click', (e) => {
-                if (e.target === notificationModal) notificationModal.style.display = 'none';
-            });
-        }
-    } catch (error) {
-        console.error("Erro ao configurar a UI comum:", error);
+        });
     }
 }
 
