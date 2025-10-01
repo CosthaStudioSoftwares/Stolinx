@@ -73,7 +73,16 @@ function initializeApp(config) {
         if (user) {
             currentUserId = user.uid;
             
-            // Lógica para verificar a assinatura ANTES de mostrar a página
+            // 1. Configura a UI básica imediatamente para que os botões sempre funcionem.
+            setupCommonUI(user);
+
+            // 2. Torna a página visível para evitar a tela em branco.
+            const container = document.querySelector('.container');
+            if(container) {
+                container.classList.add('visible');
+            }
+
+            // 3. Agora, verifica a assinatura e carrega o conteúdo específico da página.
             const userRef = db.collection('users').doc(user.uid);
             userRef.get().then(doc => {
                 if (doc.exists) {
@@ -81,28 +90,26 @@ function initializeApp(config) {
                     const now = new Date();
                     const isSubscriptionActive = userData.active && userData.expiresAt && userData.expiresAt.toDate() > now;
                     
-                    // Permite acesso ao dashboard mesmo se a assinatura expirou, para que o usuário possa renovar
+                    // Permite acesso ao dashboard mesmo se a assinatura expirou, para que o usuário possa renovar.
                     if (isSubscriptionActive || config.page === 'dashboard') {
-                        const container = document.querySelector('.container');
-                        if(container) {
-                            container.classList.add('visible');
-                        }
-                        setupCommonUI(user);
                         if (config.init && typeof config.init === 'function') {
-                            config.init();
+                            config.init(); // Executa a lógica principal da página (ex: carregar gráficos).
                         }
                     } else {
-                        // Se a assinatura estiver expirada e ele tentar acessar outra página, redireciona para o dashboard
+                        // Se a assinatura estiver expirada e ele tentar acessar outra página, redireciona para o dashboard.
                         alert('Sua assinatura expirou. Renove para acessar esta funcionalidade.');
                         window.location.href = 'dashboard.html';
                     }
                 } else {
+                     // Usuário autenticado mas sem registro no Firestore, redireciona para login.
                      window.location.href = 'index.html';
                 }
+            }).catch(error => {
+                console.error("Erro ao verificar a assinatura do usuário:", error);
+                // Mesmo com erro, a UI básica já está funcional.
             });
         } else {
-            // Se não houver usuário logado, redireciona para a página de login
-            // A menos que a página atual já seja a de login (para evitar loop)
+            // Se não houver usuário logado, redireciona para a página de login.
             if (config.page !== 'login') {
                 window.location.href = 'index.html';
             }
