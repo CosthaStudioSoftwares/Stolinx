@@ -5,7 +5,216 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stolinx - Bem-vindo</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    
+    <style>
+        /* --- Cores e Variáveis Globais --- */
+        :root {
+            --color-primary: #009688; /* Teal */
+            --color-danger: #ff7782;
+            --color-success: #41f1b6;
+            --color-white: #fff;
+            --color-info-dark: #7d8da1;
+            --color-info-light: #dce1eb;
+            --color-dark: #363949;
+            --color-light: rgba(132, 139, 200, 0.18);
+            --color-primary-variant: #00796B; /* Darker Teal */
+            --color-dark-variant: #677483;
+            --color-background: #f6f6f9;
+            --border-radius-1: 0.4rem;
+            --border-radius-2: 0.8rem;
+        }
+
+        /* --- Reset e Estilos Base --- */
+        * {
+            margin: 0;
+            padding: 0;
+            outline: 0;
+            appearance: none;
+            border: 0;
+            text-decoration: none;
+            list-style: none;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--color-background);
+            color: var(--color-dark);
+            overflow: hidden;
+        }
+
+        /* --- Layout Principal --- */
+        .auth-main-container {
+            display: grid;
+            grid-template-columns: 45% 55%;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* --- Painel Esquerdo (Branding) --- */
+        .left-panel {
+            background: linear-gradient(-45deg, var(--color-primary), var(--color-primary-variant));
+            color: var(--color-white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            text-align: center;
+        }
+
+        .branding-content h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            letter-spacing: 1px;
+        }
+
+        .branding-content h1 .danger {
+            color: var(--color-danger);
+            text-shadow: 1px 1px 5px rgba(0,0,0,0.2);
+        }
+
+        .branding-content p {
+            font-size: 1.1rem;
+            font-weight: 300;
+            max-width: 400px;
+        }
+
+        /* --- Painel Direito (Formulário) --- */
+        .right-panel {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .auth-form-wrapper {
+            width: 100%;
+            max-width: 400px;
+            background: var(--color-white);
+            padding: 2.5rem;
+            border-radius: var(--border-radius-2);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .auth-form-wrapper h1 {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .auth-form-wrapper h1 .danger {
+            color: var(--color-danger);
+        }
+
+        .auth-form-wrapper p {
+            text-align: center;
+            color: var(--color-info-dark);
+            margin-bottom: 2.5rem;
+        }
+
+        /* --- Estilos dos Formulários --- */
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 14px;
+            border-radius: var(--border-radius-1);
+            background: var(--color-background);
+            border: 1px solid var(--color-info-light);
+            font-family: 'Poppins', sans-serif;
+            color: var(--color-dark);
+            font-size: 0.95rem;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .input-group input:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(0, 150, 136, 0.25);
+        }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            border-radius: var(--border-radius-1);
+            background: var(--color-primary);
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            font-family: 'Poppins', sans-serif;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        button[type="submit"]:hover {
+            background: var(--color-primary-variant);
+            transform: translateY(-2px);
+        }
+
+        .auth-toggle-link {
+            display: block;
+            text-align: center;
+            margin-top: 1.5rem;
+            color: var(--color-primary);
+            cursor: pointer;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+        
+        .auth-toggle-link:hover {
+            text-decoration: underline;
+            color: var(--color-primary-variant);
+        }
+
+        #forgot-password {
+            margin-top: 1rem;
+            margin-bottom: -1rem;
+            font-size: 0.85rem;
+            color: var(--color-dark-variant);
+        }
+
+        .auth-message {
+            text-align: center;
+            padding: 12px;
+            border-radius: var(--border-radius-1);
+            margin-bottom: 1.5rem;
+            display: none;
+            font-weight: 500;
+            color: var(--color-white);
+        }
+
+        .auth-message.success { background-color: var(--color-success); color: var(--color-dark); }
+        .auth-message.error { background-color: var(--color-danger); }
+
+        #login-form, #register-form {
+            transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
+        }
+        
+        #register-form {
+            display: none;
+            opacity: 0;
+        }
+
+        /* --- Responsividade --- */
+        @media (max-width: 768px) {
+            .auth-main-container {
+                grid-template-columns: 1fr;
+            }
+            .left-panel {
+                display: none;
+            }
+            .right-panel {
+                background: var(--color-background);
+            }
+            .auth-form-wrapper {
+                box-shadow: none;
+                padding: 1.5rem;
+            }
+        }
+    </style>
 
     <!-- PWA -->
     <meta name="theme-color" content="#009688">
@@ -20,17 +229,22 @@
     </script>
 </head>
 <body>
-    <div id="auth-page" class="auth-main-container visible">
+    <div class="auth-main-container">
+        <!-- Painel Esquerdo com a marca -->
         <div class="left-panel">
             <div class="branding-content">
                 <h1>Bem-vindo ao STOL<span class="danger">INX</span></h1>
                 <p>Gerencie seu estoque de forma inteligente e eficiente, onde quer que você esteja.</p>
             </div>
         </div>
+
+        <!-- Painel Direito com os formulários -->
         <div class="right-panel">
             <div class="auth-form-wrapper">
-                <div id="auth-message"></div>
-                <form id="login-form">
+                <div id="auth-message" class="auth-message"></div>
+
+                <!-- Formulário de Login -->
+                <form id="login-form" style="display: block; opacity: 1;">
                     <h1>Acesse sua Conta</h1>
                     <p>Bem-vindo de volta!</p>
                     <div class="input-group">
@@ -43,6 +257,8 @@
                     <a class="auth-toggle-link" id="forgot-password">Esqueceu a senha?</a>
                     <a class="auth-toggle-link" id="show-register">Não tem uma conta? Cadastre-se</a>
                 </form>
+        
+                <!-- Formulário de Cadastro -->
                 <form id="register-form">
                     <h1>Crie sua Conta</h1>
                     <p>É rápido e fácil.</p>
