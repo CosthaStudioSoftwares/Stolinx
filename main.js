@@ -59,7 +59,8 @@ function getUserCollection(collectionName) {
 }
 
 /**
- * LÓGICA DE INICIALIZAÇÃO COM TRIAL E VERIFICAÇÃO DE E-MAIL
+ * LÓGICA DE INICIALIZAÇÃO CORRIGIDA
+ * Garante a criação do Trial de 30 dias antes de verificar a ativação.
  */
 function initializeApp(config) {
     if (!firebase.apps.length) {
@@ -73,33 +74,19 @@ function initializeApp(config) {
             currentUserId = user.uid;
             const userRef = db.collection('users').doc(user.uid);
 
-            // 1. Verificar se o e-mail foi verificado
-            if (!user.emailVerified) {
-                // Se não estiver na index, redireciona para uma página de aviso ou desloga
-                // Aqui vamos apenas mostrar a notificação e impedir o init
-                showAppNotification("Por favor, verifique seu e-mail para ativar sua conta. Verifique sua caixa de entrada ou spam.", "E-mail não verificado");
-                // Opcional: auth.signOut();
-                return;
-            }
+            try {
+                // 1. Verificar se o e-mail foi verificado primeiro
+                if (!user.emailVerified) {
+                    showAppNotification("Por favor, verifique seu e-mail para ativar sua conta. Verifique sua caixa de entrada ou spam.", "E-mail não verificado");
+                    return;
+                }
 
-            userRef.get().then(async (doc) => {
-                const now = new Date();
-                
-                if (doc.exists) {
-                    const userData = doc.data();
-                    
-                    // Verifica se assinatura está ativa e dentro do prazo
-                    if (userData.active && userData.expiresAt && userData.expiresAt.toDate() > now) {
-                        setupCommonUI(user);
-                        if (config.init) config.init();
-                    } else {
-                        // Assinatura expirada
-                        window.location.href = 'ativacao.html';
-                    }
-                } else {
-                    /**
-                     * NOVO USUÁRIO: Criar perfil com 30 dias de trial e enviar verificação
-                     */
+                // 2. Tentar buscar o documento do usuário de forma assíncrona
+                let doc = await userRef.get();
+
+                // 3. Se o documento não existe (Novo Usuário), criamos o Trial AGORA
+                if (!doc.exists) {
+                    const now = new Date();
                     const trialEndDate = new Date();
                     trialEndDate.setDate(now.getDate() + 30);
 
@@ -111,20 +98,31 @@ function initializeApp(config) {
                         expiresAt: firebase.firestore.Timestamp.fromDate(trialEndDate)
                     };
 
-                    try {
-                        await userRef.set(newUserProfile);
-                        // Enviar e-mail de verificação
-                        await user.sendEmailVerification();
-                        
-                        showAppNotification("Sua conta de teste de 30 dias foi criada! Enviamos um e-mail de verificação. Por favor, valide-o para acessar o sistema.", "Sucesso!");
-                        
-                        console.log("Perfil criado e e-mail de verificação enviado.");
-                    } catch (error) {
-                        console.error("Erro ao configurar novo usuário:", error);
-                        showAppNotification("Erro ao configurar seu período de teste ou enviar e-mail.");
-                    }
+                    await userRef.set(newUserProfile);
+                    console.log("Teste gratuito de 30 dias ativado no banco de dados.");
+                    
+                    // Atualizamos a variável 'doc' para prosseguir com os dados novos
+                    doc = await userRef.get();
                 }
-            });
+
+                // 4. Validar os dados de acesso
+                const userData = doc.data();
+                const now = new Date();
+
+                if (userData.active && userData.expiresAt && userData.expiresAt.toDate() > now) {
+                    // Acesso permitido
+                    setupCommonUI(user);
+                    if (config.init) config.init();
+                } else {
+                    // Assinatura expirada ou inativa
+                    window.location.href = 'ativacao.html';
+                }
+
+            } catch (error) {
+                console.error("Erro crítico na inicialização:", error);
+                showAppNotification("Erro ao carregar seu perfil. Tente atualizar a página.");
+            }
+
         } else {
             // Se não estiver logado e tentar acessar página protegida
             if (window.location.pathname !== '/index.html' && window.location.pathname !== '/') {
