@@ -13,14 +13,13 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            padding: 2rem 0;
             background-color: var(--color-background);
         }
         .activation-card {
             text-align: center;
             max-width: 500px;
             width: 90%;
-            padding: 2rem;
+            padding: 2.5rem;
             border-radius: 20px;
             box-shadow: 0 2rem 3rem var(--color-light);
             background: var(--color-white);
@@ -38,20 +37,26 @@
         .status-active { background: #e8f5e9; color: #2e7d32; }
         .status-expired { background: #ffebee; color: #c62828; }
 
-        /* AJUSTE DEFINITIVO PARA O BRICK */
-        #paymentCardBrick_container {
+        /* Botão de Pagamento Estilizado */
+        .btn-pay-mp {
+            background-color: #009688;
+            color: white;
+            padding: 18px 30px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
             width: 100%;
-            min-width: 300px; /* Força largura mínima */
-            min-height: 600px !important; 
+            display: block;
             margin-top: 1rem;
-            display: block !important;
+            box-shadow: 0 4px 14px rgba(0, 150, 136, 0.3);
         }
-
-        /* Bloqueia qualquer tentativa do navegador de distorcer os SVGs do MP */
-        #paymentCardBrick_container svg {
-            width: 100px !important; /* Valor fixo ajuda o SDK a não bugar */
-            height: 100px !important;
-            display: inline-block;
+        .btn-pay-mp:hover { 
+            background-color: #00796b; 
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 150, 136, 0.4);
         }
 
         .btn-secondary {
@@ -67,7 +72,6 @@
             font-weight: 500;
             transition: 0.3s;
         }
-        .btn-secondary:hover { background: var(--color-light); }
 
         #loading-overlay {
             display: none;
@@ -86,7 +90,6 @@
             border-top-color: #009688;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin-bottom: 15px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
@@ -94,17 +97,19 @@
 <body>
     <div id="loading-overlay">
         <div class="spinner"></div>
-        <p id="loading-text">A preparar pagamento...</p>
+        <p style="margin-top:15px">A conectar ao Mercado Pago...</p>
     </div>
 
     <div class="activation-container">
         <div class="card activation-card" id="main-card" style="display: none;">
             <div id="status-tag" class="status-badge"></div>
             
-            <h1 id="activation-title">Gerir Assinatura</h1>
-            <p id="activation-msg">Aguarde um momento.</p>
+            <h1 id="activation-title">Assinatura Stolinx</h1>
+            <p id="activation-msg">Verificando status...</p>
             
-            <div id="paymentCardBrick_container"></div>
+            <button id="checkout-btn" class="btn-pay-mp">
+                Pagar com Pix ou Cartão
+            </button>
 
             <div id="action-buttons"></div>
 
@@ -132,23 +137,18 @@
         const db = firebase.firestore();
         const functions = firebase.app().functions('us-central1');
         
+        // Inicializa Mercado Pago
         const mp = new MercadoPago('APP_USR-5b2519c5-3871-4df1-b1cc-398df9ec07bf', {
             locale: 'pt-BR'
         });
-        const bricksBuilder = mp.bricks();
 
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                try {
-                    const doc = await db.collection('users').doc(user.uid).get();
-                    if (doc.exists) {
-                        atualizarInterface(doc.data());
-                        renderPaymentBrick();
-                    } else {
-                        window.location.href = 'dashboard.html';
-                    }
-                } catch (error) {
-                    console.error("Erro ao procurar dados:", error);
+                const doc = await db.collection('users').doc(user.uid).get();
+                if (doc.exists) {
+                    atualizarInterface(doc.data());
+                } else {
+                    window.location.href = 'dashboard.html';
                 }
             } else {
                 window.location.href = 'index.html';
@@ -169,69 +169,46 @@
             if (diffDays > 0) {
                 tagEl.textContent = "Assinatura Ativa";
                 tagEl.className = "status-badge status-active";
-                msgEl.innerHTML = `Válida por mais <strong>${diffDays} dias</strong>. <br>Renove agora e garanta mais 30 dias.`;
+                titleEl.textContent = "Amplie o seu Acesso";
+                msgEl.innerHTML = `Válida por mais <strong>${diffDays} dias</strong>. <br>Adicione mais 30 dias agora.`;
                 btnContainer.innerHTML = `<a href="dashboard.html" class="btn-secondary">Voltar ao Dashboard</a>`;
             } else {
                 tagEl.textContent = "Assinatura Expirada";
                 tagEl.className = "status-badge status-expired";
-                msgEl.innerHTML = "O seu período terminou. Renove para continuar a gerir o seu stock.";
+                titleEl.textContent = "Acesso Suspenso";
+                msgEl.innerHTML = "Seu período terminou. Renove para continuar usando o sistema.";
                 btnContainer.innerHTML = "";
             }
             card.style.display = 'block';
         }
 
-        async function renderPaymentBrick() {
+        // Lógica do Botão de Checkout (MODAL DEFINITIVO)
+        document.getElementById('checkout-btn').addEventListener('click', async () => {
+            const loading = document.getElementById('loading-overlay');
+            loading.style.display = 'flex';
+
             try {
                 const createOrder = functions.httpsCallable('createMercadoPagoOrder');
                 const response = await createOrder();
-                const preferenceId = response.data.preferenceId;
-
-                const settings = {
-                    initialization: {
-                        preferenceId: preferenceId,
-                        amount: 1.00, 
-                    },
-                    customization: {
-                        paymentMethods: {
-                            bankTransfer: ['pix'], 
-                            creditCard: 'all',
-                        },
-                        visual: {
-                            hideStatusDetails: false,
-                            hidePaymentButton: false,
-                            theme: 'default',
-                        }
-                    },
-                    callbacks: {
-                        onReady: () => {
-                            console.log("Brick carregado com sucesso!");
-                            document.getElementById('loading-overlay').style.display = 'none';
-                        },
-                        onSubmit: ({ selectedPaymentMethod, formData }) => {
-                            return new Promise((resolve, reject) => {
-                                resolve();
-                            });
-                        },
-                        onError: (error) => {
-                            console.error("Erro interno do Brick:", error);
-                            document.getElementById('loading-overlay').style.display = 'none';
-                        },
-                    },
-                };
-
-                const container = document.getElementById('paymentCardBrick_container');
-                container.innerHTML = ''; 
                 
-                window.paymentBrickController = await bricksBuilder.create(
-                    'payment',
-                    'paymentCardBrick_container',
-                    settings
-                );
+                if (response.data && response.data.preferenceId) {
+                    // ABRE O CHECKOUT PRO COMO MODAL (Sobreposição)
+                    mp.checkout({
+                        preference: {
+                            id: response.data.preferenceId
+                        },
+                        autoOpen: true // Abre automaticamente
+                    });
+                } else {
+                    throw new Error("Erro ao gerar preferência.");
+                }
             } catch (error) {
-                console.error("Falha ao criar ordem:", error);
-                document.getElementById('loading-overlay').style.display = 'none';
+                console.error("Erro:", error);
+                alert("Erro ao iniciar pagamento. Verifique sua conexão.");
+            } finally {
+                loading.style.display = 'none';
             }
-        }
+        });
 
         document.getElementById('logout-activation').addEventListener('click', (e) => {
             e.preventDefault();
