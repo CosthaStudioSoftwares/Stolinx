@@ -16,6 +16,7 @@ let firestoreUnsubscribes = [];
 
 function showAppNotification(message, title = 'Aviso') {
     const modal = document.getElementById('app-notification-modal');
+    if (!modal) return;
     document.getElementById('app-notification-title').textContent = title;
     document.getElementById('app-notification-message').textContent = message;
     const buttons = document.getElementById('app-notification-buttons');
@@ -26,6 +27,7 @@ function showAppNotification(message, title = 'Aviso') {
 
 function showAppConfirmation(message, onConfirm, title = 'Confirmação') {
     const modal = document.getElementById('app-notification-modal');
+    if (!modal) return;
     document.getElementById('app-notification-title').textContent = title;
     document.getElementById('app-notification-message').textContent = message;
     const buttons = document.getElementById('app-notification-buttons');
@@ -57,7 +59,7 @@ function getUserCollection(collectionName) {
 }
 
 /**
- * LÓGICA DE INICIALIZAÇÃO COM TRIAL DE 30 DIAS
+ * LÓGICA DE INICIALIZAÇÃO COM TRIAL E VERIFICAÇÃO DE E-MAIL
  */
 function initializeApp(config) {
     if (!firebase.apps.length) {
@@ -66,10 +68,19 @@ function initializeApp(config) {
     auth = firebase.auth();
     db = firebase.firestore();
 
-    auth.onAuthStateChanged(user => {
+    auth.onAuthStateChanged(async (user) => {
         if (user) {
             currentUserId = user.uid;
             const userRef = db.collection('users').doc(user.uid);
+
+            // 1. Verificar se o e-mail foi verificado
+            if (!user.emailVerified) {
+                // Se não estiver na index, redireciona para uma página de aviso ou desloga
+                // Aqui vamos apenas mostrar a notificação e impedir o init
+                showAppNotification("Por favor, verifique seu e-mail para ativar sua conta. Verifique sua caixa de entrada ou spam.", "E-mail não verificado");
+                // Opcional: auth.signOut();
+                return;
+            }
 
             userRef.get().then(async (doc) => {
                 const now = new Date();
@@ -77,17 +88,17 @@ function initializeApp(config) {
                 if (doc.exists) {
                     const userData = doc.data();
                     
-                    // Verifica se está ativo e se a data de expiração é futura
+                    // Verifica se assinatura está ativa e dentro do prazo
                     if (userData.active && userData.expiresAt && userData.expiresAt.toDate() > now) {
                         setupCommonUI(user);
                         if (config.init) config.init();
                     } else {
-                        // Se expirou, manda para ativação
+                        // Assinatura expirada
                         window.location.href = 'ativacao.html';
                     }
                 } else {
                     /**
-                     * NOVO USUÁRIO: Criar documento com 30 dias de teste grátis
+                     * NOVO USUÁRIO: Criar perfil com 30 dias de trial e enviar verificação
                      */
                     const trialEndDate = new Date();
                     trialEndDate.setDate(now.getDate() + 30);
@@ -102,17 +113,23 @@ function initializeApp(config) {
 
                     try {
                         await userRef.set(newUserProfile);
-                        console.log("Teste gratuito de 30 dias ativado!");
-                        // Recarrega a página para aplicar as permissões novas
-                        window.location.reload();
+                        // Enviar e-mail de verificação
+                        await user.sendEmailVerification();
+                        
+                        showAppNotification("Sua conta de teste de 30 dias foi criada! Enviamos um e-mail de verificação. Por favor, valide-o para acessar o sistema.", "Sucesso!");
+                        
+                        console.log("Perfil criado e e-mail de verificação enviado.");
                     } catch (error) {
-                        console.error("Erro ao criar perfil de teste:", error);
-                        showAppNotification("Erro ao configurar seu período de teste.");
+                        console.error("Erro ao configurar novo usuário:", error);
+                        showAppNotification("Erro ao configurar seu período de teste ou enviar e-mail.");
                     }
                 }
             });
         } else {
-            window.location.href = 'index.html';
+            // Se não estiver logado e tentar acessar página protegida
+            if (window.location.pathname !== '/index.html' && window.location.pathname !== '/') {
+                window.location.href = 'index.html';
+            }
         }
     });
 }
@@ -127,23 +144,32 @@ function setupCommonUI(user) {
     const themeTogglerLink = document.getElementById('theme-toggler-link');
     
     if (document.documentElement.classList.contains('dark-theme')) {
-        if(themeTogglerLink.querySelector('span')) themeTogglerLink.querySelector('span').textContent = 'dark_mode';
+        const icon = themeTogglerLink ? themeTogglerLink.querySelector('span') : null;
+        if(icon) icon.textContent = 'dark_mode';
     }
 
-    themeTogglerLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        document.documentElement.classList.toggle('dark-theme');
-        const isDark = document.documentElement.classList.contains('dark-theme');
-        themeTogglerLink.querySelector('span').textContent = isDark ? 'dark_mode' : 'light_mode';
-        localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
-    });
+    if (themeTogglerLink) {
+        themeTogglerLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.documentElement.classList.toggle('dark-theme');
+            const isDark = document.documentElement.classList.contains('dark-theme');
+            const icon = themeTogglerLink.querySelector('span');
+            if(icon) icon.textContent = isDark ? 'dark_mode' : 'light_mode';
+            localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+        });
+    }
 
-    document.getElementById('logout-btn').addEventListener('click', (e) => {
-        e.preventDefault();
-        firestoreUnsubscribes.forEach(unsubscribe => unsubscribe());
-        firestoreUnsubscribes = [];
-        auth.signOut();
-    });
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            firestoreUnsubscribes.forEach(unsubscribe => unsubscribe());
+            firestoreUnsubscribes = [];
+            auth.signOut().then(() => {
+                window.location.href = 'index.html';
+            });
+        });
+    }
 
     const welcomeMessageEl = document.getElementById('welcome-message');
     if (welcomeMessageEl) {
@@ -154,7 +180,8 @@ function setupCommonUI(user) {
     
     const notificationModal = document.getElementById('app-notification-modal');
     if(notificationModal) {
-        document.getElementById('app-notification-close-btn').addEventListener('click', () => notificationModal.style.display = 'none');
+        const closeModBtn = document.getElementById('app-notification-close-btn');
+        if(closeModBtn) closeModBtn.addEventListener('click', () => notificationModal.style.display = 'none');
         notificationModal.addEventListener('click', (e) => {
             if (e.target === notificationModal) notificationModal.style.display = 'none';
         });
