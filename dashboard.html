@@ -228,46 +228,47 @@
                     const dashboardTitle = document.getElementById('dashboard-title');
 
                     // --- Subscription Status Logic ---
-                    function displaySubscriptionStatus() {
-                        if (!currentUserId) return; 
+                   function displaySubscriptionStatus() {
+    if (!currentUserId) return; 
 
-                        const userRef = db.collection('users').doc(currentUserId);
-                        const statusEl = document.getElementById('subscription-status');
+    const userRef = db.collection('users').doc(currentUserId);
+    const statusEl = document.getElementById('subscription-status');
 
-                        userRef.get().then(doc => {
-                            if (doc.exists) {
-                                const userData = doc.data();
-                                if (userData && userData.expiresAt) {
-                                    const expiresDate = userData.expiresAt.toDate();
-                                    const now = new Date();
-                                    // Zera a hora para comparar apenas os dias
-                                    now.setHours(0, 0, 0, 0);
-                                    expiresDate.setHours(0, 0, 0, 0);
+    userRef.get().then(doc => {
+        if (doc.exists) {
+            const userData = doc.data();
+            if (userData && userData.expiresAt) {
+                const expiresDate = userData.expiresAt.toDate();
+                const now = new Date();
+                now.setHours(0, 0, 0, 0);
+                expiresDate.setHours(0, 0, 0, 0);
 
-                                    const diffTime = expiresDate.getTime() - now.getTime();
-                                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const diffTime = expiresDate.getTime() - now.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-                                    let message = '';
-                                    
-                                    if (diffDays > 7) {
-                                        message = `Sua assinatura expira em <span class="days-remaining primary">${diffDays} dias</span>.`;
-                                    } else if (diffDays > 1) {
-                                        message = `Sua assinatura expira em <span class="days-remaining warning">${diffDays} dias</span>. Renove em breve!`;
-                                    } else if (diffDays === 1) {
-                                        message = `Sua assinatura expira <span class="days-remaining warning">amanhã</span>.`;
-                                    } else if (diffDays === 0) {
-                                        message = `Sua assinatura expira <span class="days-remaining danger">hoje</span>.`;
-                                    } else {
-                                        message = `<span class="days-remaining danger">Sua assinatura expirou.</span>`;
-                                    }
-                                    statusEl.innerHTML = message;
-                                }
-                            }
-                        }).catch(error => {
-                            console.error("Error getting subscription status:", error);
-                            statusEl.textContent = 'Não foi possível carregar o status da assinatura.';
-                        });
-                    }
+                let message = '';
+                // Adicionamos um link para a página de ativação
+                const renewLink = ' <a href="ativacao.html" style="text-decoration: underline; font-weight: bold; margin-left: 10px;">Renovar agora</a>';
+                
+                if (diffDays > 7) {
+                    message = `Sua assinatura expira em <span class="days-remaining primary">${diffDays} dias</span>.`;
+                } else if (diffDays > 1) {
+                    message = `Sua assinatura expira em <span class="days-remaining warning">${diffDays} dias</span>.${renewLink}`;
+                } else if (diffDays === 1) {
+                    message = `Sua assinatura expira <span class="days-remaining warning">amanhã</span>.${renewLink}`;
+                } else if (diffDays === 0) {
+                    message = `Sua assinatura expira <span class="days-remaining danger">hoje</span>.${renewLink}`;
+                } else {
+                    message = `<span class="days-remaining danger">Sua assinatura expirou.</span>${renewLink}`;
+                }
+                statusEl.innerHTML = message;
+            }
+        }
+    }).catch(error => {
+        console.error("Error getting subscription status:", error);
+        statusEl.textContent = 'Não foi possível carregar o status da assinatura.';
+    });
+}
 
                     function populateDateFilters() {
                         const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -522,3 +523,4 @@
     </script>
 </body>
 </html>
+
