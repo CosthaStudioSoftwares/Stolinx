@@ -59,6 +59,20 @@
         }
         .btn-secondary:hover { background: var(--color-light); }
 
+        /* Garante que o contêiner do Mercado Pago tenha espaço e dimensões claras */
+#paymentCardBrick_container {
+    width: 100%;
+    min-height: 300px; /* Dá um espaço mínimo para o Brick carregar */
+    margin-top: 1rem;
+    text-align: left; /* O SDK prefere alinhamento à esquerda internamente */
+}
+
+/* Corrige possíveis conflitos de SVG */
+#paymentCardBrick_container svg {
+    max-height: 100%;
+    max-width: 100%;
+}
+
         #loading-overlay {
             display: none;
             position: fixed;
@@ -175,50 +189,63 @@
 
         // Função para Renderizar o Brick do Mercado Pago
         async function renderPaymentBrick() {
-            try {
-                // 1. Chama sua Cloud Function para obter o preferenceId
-                const createOrder = functions.httpsCallable('createMercadoPagoOrder');
-                const response = await createOrder();
-                const preferenceId = response.data.preferenceId;
+    try {
+        const createOrder = functions.httpsCallable('createMercadoPagoOrder');
+        const response = await createOrder();
+        const preferenceId = response.data.preferenceId;
 
-                // 2. Configura e renderiza o Brick
-                const settings = {
-                    initialization: {
-                        preferenceId: preferenceId,
-                        amount: 1.00, // <--- ADICIONE ESTA LINHA (O valor deve ser o mesmo da sua Cloud Function)
-                    },
-                    customization: {
-                        visual: {
-                            hideStatusDetails: true,
-                            hidePaymentButton: false,
-                            theme: 'default', // pode ser 'dark' ou 'bootstrap'
-                        },
-                        paymentMethods: {
-                            bankTransfer: ['all'],
-                            creditCard: ['all'],
-                        }
-                    },
-                    callbacks: {
-                        onReady: () => {
-                            console.log("Brick Pronto");
-                        },
-                        onSubmit: ({ selectedPaymentMethod, formData }) => {
-                            // O Brick cuida do envio para o Checkout Pro
-                        },
-                        onError: (error) => {
-                            console.error("Erro no Brick:", error);
-                        },
-                    },
-                };
-                window.paymentBrickController = await bricksBuilder.create(
-                    'payment',
-                    'paymentCardBrick_container',
-                    settings
-                );
-            } catch (error) {
-                console.error("Erro ao carregar pagamento:", error);
-            }
-        }
+        const settings = {
+            initialization: {
+                preferenceId: preferenceId,
+                amount: 1.00, // Certifique-se que este valor bate com o da Function
+            },
+            customization: {
+                paymentMethods: {
+                    ticket: "all",
+                    bankTransfer: "all", // Ativa o Pix
+                    creditCard: "all",
+                },
+                visual: {
+                    hideStatusDetails: false,
+                    hidePaymentButton: false,
+                    theme: 'default',
+                }
+            },
+            callbacks: {
+                onReady: () => {
+                    console.log("Brick pronto para uso");
+                    document.getElementById('loading-overlay').style.display = 'none';
+                },
+                onSubmit: ({ selectedPaymentMethod, formData }) => {
+                    // Aqui o Brick assume o processamento. 
+                    // Se for Pix, ele abrirá o QR Code. 
+                    // Se for Cartão, ele processará o formulário.
+                    console.log("Pagamento iniciado via:", selectedPaymentMethod);
+                    return new Promise((resolve, reject) => {
+                        // O SDK do Brick gerencia a transação automaticamente com o preferenceId
+                        resolve();
+                    });
+                },
+                onError: (error) => {
+                    console.error("Erro no SDK do Mercado Pago:", error);
+                    document.getElementById('loading-overlay').style.display = 'none';
+                },
+            },
+        };
+
+        // Limpa o contêiner antes de renderizar (evita duplicação e erros de SVG)
+        document.getElementById('paymentCardBrick_container').innerHTML = '';
+        
+        window.paymentBrickController = await bricksBuilder.create(
+            'payment',
+            'paymentCardBrick_container',
+            settings
+        );
+    } catch (error) {
+        console.error("Erro ao carregar o Brick:", error);
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
+}
 
         document.getElementById('logout-activation').addEventListener('click', (e) => {
             e.preventDefault();
@@ -227,4 +254,5 @@
     </script>
 </body>
 </html>
+
 
