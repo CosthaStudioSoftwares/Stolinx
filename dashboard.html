@@ -247,27 +247,29 @@
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
                 let message = '';
-                
-                // CRIAMOS UM BOTÃO REAL COM ONCLICK PARA TESTAR NO CONSOLE
-                const renewBtn = ` <button onclick="console.log('Botão renovar clicado'); window.location.href='ativacao.html'" 
-                                    style="background: #009688; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer; border: none; margin-left: 10px;">
-                                    Renovar agora
-                                   </button>`;
+                // Criamos o link de renovação antecipada
+                const renewLink = ` <a href="ativacao.html" style="text-decoration: none; margin-left: 10px;">
+                                        <button style="background: var(--color-primary); color: white; padding: 4px 12px; border-radius: 5px; cursor: pointer; border: none; font-size: 0.8rem; font-family: 'Poppins';">
+                                            Renovar Antecipado
+                                        </button>
+                                    </a>`;
                 
                 if (diffDays > 7) {
-                    message = `Sua assinatura expira em <span class="days-remaining primary">${diffDays} dias</span>.`;
-                } else if (diffDays > 0) {
-                    message = `Sua assinatura expira em <span class="days-remaining warning">${diffDays} dias</span>.${renewBtn}`;
+                    message = `Sua assinatura expira em <span class="days-remaining primary">${diffDays} dias</span>.${renewLink}`;
+                } else if (diffDays > 1) {
+                    message = `Sua assinatura expira em <span class="days-remaining warning">${diffDays} dias</span>.${renewLink}`;
+                } else if (diffDays === 1) {
+                    message = `Sua assinatura expira <span class="days-remaining warning">amanhã</span>.${renewLink}`;
                 } else if (diffDays === 0) {
-                    message = `Sua assinatura expira <span class="days-remaining danger">hoje</span>.${renewBtn}`;
+                    message = `Sua assinatura expira <span class="days-remaining danger">hoje</span>.${renewLink}`;
                 } else {
-                    message = `<span class="days-remaining danger">Sua assinatura expirou.</span>${renewBtn}`;
+                    message = `<span class="days-remaining danger">Sua assinatura expirou.</span>${renewLink}`;
                 }
                 statusEl.innerHTML = message;
             }
         }
     }).catch(error => {
-        console.error("Erro ao carregar status:", error);
+        console.error("Erro ao carregar status da assinatura:", error);
     });
 }
 
@@ -524,5 +526,6 @@
     </script>
 </body>
 </html>
+
 
 
