@@ -23,26 +23,44 @@
         .activation-card p { margin-bottom: 2rem; color: var(--color-dark-variant); }
         .btn-renew {
             background-color: #009688;
+            color: white;
             padding: 15px 30px;
             font-size: 1.1rem;
             font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
         }
+        .btn-renew:hover { background-color: #00796b; }
+
         #loading-overlay {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.9);
             z-index: 1000;
             flex-direction: column;
             align-items: center;
             justify-content: center;
         }
+        /* Animação do Spinner */
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #ccc;
+            border-top-color: #009688;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div id="loading-overlay">
         <div class="spinner"></div>
-        <p>Processando pagamento...</p>
+        <p>Conectando ao Mercado Pago...</p>
     </div>
 
     <div class="activation-container">
@@ -54,7 +72,7 @@
                 Renovar Agora (Mercado Pago)
             </button>
 
-            <a href="#" id="logout-activation" style="display: block; margin-top: 1.5rem; color: var(--color-danger);">Sair da conta</a>
+            <a href="#" id="logout-activation" style="display: block; margin-top: 1.5rem; color: var(--color-danger); text-decoration: none;">Sair da conta</a>
         </div>
     </div>
 
@@ -62,7 +80,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-functions.js"></script>
     <script>
-        // Configurações do Firebase (mesmas do seu main.js)
         const firebaseConfig = {
             apiKey: "AIzaSyAv54tgJ5oYrwTSNXpB2rCGjNbhJhe2CoM",
             authDomain: "stolinx-d6e26.firebaseapp.com",
@@ -74,28 +91,32 @@
         firebase.initializeApp(firebaseConfig);
 
         const auth = firebase.auth();
-        const functions = firebase.functions();
-        // Se estiver usando região diferente de us-central1, descomente a linha abaixo:
-        // functions.useFunctionsEmulator('http://localhost:5001'); 
+        // AJUSTE: Forçando a região us-central1 para evitar erro 404
+        const functions = firebase.app().functions('us-central1');
 
         document.getElementById('btn-pay-mp').addEventListener('click', async () => {
             const loading = document.getElementById('loading-overlay');
             loading.style.display = 'flex';
 
             try {
+                // Chama a função exatamente como nomeada no seu index.js
                 const createOrder = functions.httpsCallable('createMercadoPagoOrder');
                 const response = await createOrder();
                 
-                // Redireciona para o Checkout Pro do Mercado Pago
-                window.location.href = response.data.paymentLink;
+                if (response.data && response.data.paymentLink) {
+                    window.location.href = response.data.paymentLink;
+                } else {
+                    throw new Error("Resposta inválida do servidor.");
+                }
             } catch (error) {
                 console.error("Erro ao iniciar pagamento:", error);
-                alert("Erro ao conectar com o Mercado Pago. Tente novamente.");
+                alert("Erro ao conectar com o Mercado Pago: " + (error.message || "Tente novamente."));
                 loading.style.display = 'none';
             }
         });
 
-        document.getElementById('logout-activation').addEventListener('click', () => {
+        document.getElementById('logout-activation').addEventListener('click', (e) => {
+            e.preventDefault();
             auth.signOut().then(() => window.location.href = 'index.html');
         });
     </script>
