@@ -38,19 +38,20 @@
         .status-active { background: #e8f5e9; color: #2e7d32; }
         .status-expired { background: #ffebee; color: #c62828; }
 
-        /* AJUSTE CRÍTICO: Container do Mercado Pago */
+        /* AJUSTE DEFINITIVO PARA O BRICK */
         #paymentCardBrick_container {
             width: 100%;
-            min-height: 450px !important; 
+            min-width: 300px; /* Força largura mínima */
+            min-height: 600px !important; 
             margin-top: 1rem;
-            overflow: visible !important;
+            display: block !important;
         }
 
-        /* AJUSTE CRÍTICO: Correção de erro de SVG (Width/Height inesperado) */
+        /* Bloqueia qualquer tentativa do navegador de distorcer os SVGs do MP */
         #paymentCardBrick_container svg {
-            width: 100% !important;
-            height: auto !important;
-            min-height: 150px;
+            width: 100px !important; /* Valor fixo ajuda o SDK a não bugar */
+            height: 100px !important;
+            display: inline-block;
         }
 
         .btn-secondary {
@@ -100,7 +101,7 @@
         <div class="card activation-card" id="main-card" style="display: none;">
             <div id="status-tag" class="status-badge"></div>
             
-            <h1 id="activation-title">A carregar...</h1>
+            <h1 id="activation-title">Gerir Assinatura</h1>
             <p id="activation-msg">Aguarde um momento.</p>
             
             <div id="paymentCardBrick_container"></div>
@@ -168,13 +169,11 @@
             if (diffDays > 0) {
                 tagEl.textContent = "Assinatura Ativa";
                 tagEl.className = "status-badge status-active";
-                titleEl.textContent = "Amplie o seu Acesso";
                 msgEl.innerHTML = `Válida por mais <strong>${diffDays} dias</strong>. <br>Renove agora e garanta mais 30 dias.`;
                 btnContainer.innerHTML = `<a href="dashboard.html" class="btn-secondary">Voltar ao Dashboard</a>`;
             } else {
                 tagEl.textContent = "Assinatura Expirada";
                 tagEl.className = "status-badge status-expired";
-                titleEl.textContent = "Acesso Suspenso";
                 msgEl.innerHTML = "O seu período terminou. Renove para continuar a gerir o seu stock.";
                 btnContainer.innerHTML = "";
             }
@@ -205,17 +204,16 @@
                     },
                     callbacks: {
                         onReady: () => {
-                            console.log("Brick pronto para uso");
+                            console.log("Brick carregado com sucesso!");
                             document.getElementById('loading-overlay').style.display = 'none';
                         },
                         onSubmit: ({ selectedPaymentMethod, formData }) => {
                             return new Promise((resolve, reject) => {
-                                // O SDK Bricks gerencia o processamento via preferenceId
                                 resolve();
                             });
                         },
                         onError: (error) => {
-                            console.error("Erro no SDK:", error);
+                            console.error("Erro interno do Brick:", error);
                             document.getElementById('loading-overlay').style.display = 'none';
                         },
                     },
@@ -230,7 +228,7 @@
                     settings
                 );
             } catch (error) {
-                console.error("Erro ao carregar o Brick:", error);
+                console.error("Falha ao criar ordem:", error);
                 document.getElementById('loading-overlay').style.display = 'none';
             }
         }
