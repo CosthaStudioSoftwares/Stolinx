@@ -38,13 +38,19 @@
         .status-active { background: #e8f5e9; color: #2e7d32; }
         .status-expired { background: #ffebee; color: #c62828; }
 
-        /* Container para o Brick do Mercado Pago */
+        /* AJUSTE CRÍTICO: Container do Mercado Pago */
         #paymentCardBrick_container {
             width: 100%;
-    min-height: 500px; /* Aumentado para garantir espaço para o QR Code */
-    margin-top: 1rem;
-    display: block !important;
-    visibility: visible !important;
+            min-height: 450px !important; 
+            margin-top: 1rem;
+            overflow: visible !important;
+        }
+
+        /* AJUSTE CRÍTICO: Correção de erro de SVG (Width/Height inesperado) */
+        #paymentCardBrick_container svg {
+            width: 100% !important;
+            height: auto !important;
+            min-height: 150px;
         }
 
         .btn-secondary {
@@ -61,22 +67,6 @@
             transition: 0.3s;
         }
         .btn-secondary:hover { background: var(--color-light); }
-
-        /* Garante que o contêiner do Mercado Pago tenha espaço e dimensões claras */
-#paymentCardBrick_container {
-    width: 100%;
-    min-height: 300px; /* Dá um espaço mínimo para o Brick carregar */
-    margin-top: 1rem;
-    text-align: left; /* O SDK prefere alinhamento à esquerda internamente */
-}
-
-/* Corrige possíveis conflitos de SVG */
-#paymentCardBrick_container svg {
-    width: 50px !important;
-    height: 50px !important;
-    min-width: 20px;
-    min-height: 20px;
-}
 
         #loading-overlay {
             display: none;
@@ -141,7 +131,6 @@
         const db = firebase.firestore();
         const functions = firebase.app().functions('us-central1');
         
-        // Inicializa Mercado Pago com sua Public Key
         const mp = new MercadoPago('APP_USR-5b2519c5-3871-4df1-b1cc-398df9ec07bf', {
             locale: 'pt-BR'
         });
@@ -192,61 +181,59 @@
             card.style.display = 'block';
         }
 
-        // Função para Renderizar o Brick do Mercado Pago
-       async function renderPaymentBrick() {
-    try {
-        const createOrder = functions.httpsCallable('createMercadoPagoOrder');
-        const response = await createOrder();
-        const preferenceId = response.data.preferenceId;
+        async function renderPaymentBrick() {
+            try {
+                const createOrder = functions.httpsCallable('createMercadoPagoOrder');
+                const response = await createOrder();
+                const preferenceId = response.data.preferenceId;
 
-        const settings = {
-            initialization: {
-                preferenceId: preferenceId,
-                amount: 1.00, 
-            },
-            customization: {
-                paymentMethods: {
-                    bankTransfer: ['pix'], // Força apenas o Pix aqui
-                    creditCard: 'all',
-                    // Removemos ticket/boleto aqui para evitar os avisos do console
-                },
-                visual: {
-                    hideStatusDetails: false,
-                    hidePaymentButton: false,
-                    theme: 'default',
-                }
-            },
-            callbacks: {
-                onReady: () => {
-                    console.log("Brick pronto para uso");
-                    document.getElementById('loading-overlay').style.display = 'none';
-                },
-                onSubmit: ({ selectedPaymentMethod, formData }) => {
-                    return new Promise((resolve, reject) => {
-                        // O SDK Bricks gerencia o processamento via preferenceId
-                        resolve();
-                    });
-                },
-                onError: (error) => {
-                    console.error("Erro no SDK:", error);
-                    document.getElementById('loading-overlay').style.display = 'none';
-                },
-            },
-        };
+                const settings = {
+                    initialization: {
+                        preferenceId: preferenceId,
+                        amount: 1.00, 
+                    },
+                    customization: {
+                        paymentMethods: {
+                            bankTransfer: ['pix'], 
+                            creditCard: 'all',
+                        },
+                        visual: {
+                            hideStatusDetails: false,
+                            hidePaymentButton: false,
+                            theme: 'default',
+                        }
+                    },
+                    callbacks: {
+                        onReady: () => {
+                            console.log("Brick pronto para uso");
+                            document.getElementById('loading-overlay').style.display = 'none';
+                        },
+                        onSubmit: ({ selectedPaymentMethod, formData }) => {
+                            return new Promise((resolve, reject) => {
+                                // O SDK Bricks gerencia o processamento via preferenceId
+                                resolve();
+                            });
+                        },
+                        onError: (error) => {
+                            console.error("Erro no SDK:", error);
+                            document.getElementById('loading-overlay').style.display = 'none';
+                        },
+                    },
+                };
 
-        const container = document.getElementById('paymentCardBrick_container');
-        container.innerHTML = ''; // Limpa antes de renderizar
-        
-        window.paymentBrickController = await bricksBuilder.create(
-            'payment',
-            'paymentCardBrick_container',
-            settings
-        );
-    } catch (error) {
-        console.error("Erro ao carregar o Brick:", error);
-        document.getElementById('loading-overlay').style.display = 'none';
-    }
-}
+                const container = document.getElementById('paymentCardBrick_container');
+                container.innerHTML = ''; 
+                
+                window.paymentBrickController = await bricksBuilder.create(
+                    'payment',
+                    'paymentCardBrick_container',
+                    settings
+                );
+            } catch (error) {
+                console.error("Erro ao carregar o Brick:", error);
+                document.getElementById('loading-overlay').style.display = 'none';
+            }
+        }
 
         document.getElementById('logout-activation').addEventListener('click', (e) => {
             e.preventDefault();
@@ -255,6 +242,3 @@
     </script>
 </body>
 </html>
-
-
-
