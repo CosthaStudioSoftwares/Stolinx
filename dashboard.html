@@ -253,6 +253,8 @@
                                             Renovar Antecipado
                                         </button>
                                     </a>`;
+
+                let trialPrefix = userData.trialUsed ? "Período de teste" : "Sua assinatura";
                 
                 if (diffDays > 7) {
                     message = `Sua assinatura expira em <span class="days-remaining primary">${diffDays} dias</span>.${renewLink}`;
@@ -526,6 +528,7 @@
     </script>
 </body>
 </html>
+
 
 
 
