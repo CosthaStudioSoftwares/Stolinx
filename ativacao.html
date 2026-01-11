@@ -37,7 +37,6 @@
         .status-active { background: #e8f5e9; color: #2e7d32; }
         .status-expired { background: #ffebee; color: #c62828; }
 
-        /* Botão de Pagamento Estilizado */
         .btn-pay-mp {
             background-color: #009688;
             color: white;
@@ -72,6 +71,7 @@
             font-weight: 500;
             transition: 0.3s;
         }
+        .btn-secondary:hover { background: var(--color-light); }
 
         #loading-overlay {
             display: none;
@@ -135,9 +135,9 @@
 
         const auth = firebase.auth();
         const db = firebase.firestore();
-        const functions = firebase.app().functions('us-central1');
+        // Alterado para detectar a região automaticamente ou usar a padrão
+        const functions = firebase.functions(); 
         
-        // Inicializa Mercado Pago
         const mp = new MercadoPago('APP_USR-5b2519c5-3871-4df1-b1cc-398df9ec07bf', {
             locale: 'pt-BR'
         });
@@ -182,29 +182,31 @@
             card.style.display = 'block';
         }
 
-        // Lógica do Botão de Checkout (MODAL DEFINITIVO)
         document.getElementById('checkout-btn').addEventListener('click', async () => {
             const loading = document.getElementById('loading-overlay');
             loading.style.display = 'flex';
 
             try {
+                // Tenta chamar a função
                 const createOrder = functions.httpsCallable('createMercadoPagoOrder');
                 const response = await createOrder();
                 
+                console.log("Resposta recebida:", response.data);
+
                 if (response.data && response.data.preferenceId) {
-                    // ABRE O CHECKOUT PRO COMO MODAL (Sobreposição)
+                    // Abre o Checkout Pro (Modal)
                     mp.checkout({
                         preference: {
                             id: response.data.preferenceId
                         },
-                        autoOpen: true // Abre automaticamente
+                        autoOpen: true
                     });
                 } else {
-                    throw new Error("Erro ao gerar preferência.");
+                    throw new Error("O servidor não retornou um Preference ID válido.");
                 }
             } catch (error) {
-                console.error("Erro:", error);
-                alert("Erro ao iniciar pagamento. Verifique sua conexão.");
+                console.error("Erro detalhado:", error);
+                alert("Falha ao conectar com o servidor. Verifique se as Cloud Functions estão ativas.");
             } finally {
                 loading.style.display = 'none';
             }
