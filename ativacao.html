@@ -50,47 +50,21 @@
             width: 100%;
             display: block;
             margin-top: 1rem;
-            box-shadow: 0 4px 14px rgba(0, 150, 136, 0.3);
         }
-        .btn-pay-mp:hover { 
-            background-color: #00796b; 
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 150, 136, 0.4);
-        }
+        .btn-pay-mp:hover { background-color: #00796b; transform: translateY(-2px); }
 
         .btn-secondary {
-            display: inline-block;
-            width: 100%;
-            padding: 12px;
-            margin-top: 1rem;
-            background: transparent;
-            border: 1px solid var(--color-info-dark);
-            color: var(--color-info-dark);
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 500;
-            transition: 0.3s;
+            display: inline-block; width: 100%; padding: 12px; margin-top: 1rem;
+            background: transparent; border: 1px solid var(--color-info-dark);
+            color: var(--color-info-dark); border-radius: 8px; text-decoration: none;
         }
-        .btn-secondary:hover { background: var(--color-light); }
 
         #loading-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.9);
-            z-index: 1000;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.9); z-index: 1000; flex-direction: column;
+            align-items: center; justify-content: center;
         }
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #ccc;
-            border-top-color: #009688;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
+        .spinner { width: 50px; height: 50px; border: 5px solid #ccc; border-top-color: #009688; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
@@ -103,17 +77,11 @@
     <div class="activation-container">
         <div class="card activation-card" id="main-card" style="display: none;">
             <div id="status-tag" class="status-badge"></div>
-            
             <h1 id="activation-title">Assinatura Stolinx</h1>
             <p id="activation-msg">Verificando status...</p>
-            
-            <button id="checkout-btn" class="btn-pay-mp">
-                Pagar com Pix ou Cartão
-            </button>
-
+            <button id="checkout-btn" class="btn-pay-mp">Pagar com Pix ou Cartão</button>
             <div id="action-buttons"></div>
-
-            <a href="#" id="logout-activation" style="display: block; margin-top: 1.5rem; color: var(--color-danger); text-decoration: none; font-size: 0.9rem;">Sair da conta</a>
+            <a href="#" id="logout-activation" style="display: block; margin-top: 1.5rem; color: var(--color-danger); text-decoration: none;">Sair da conta</a>
         </div>
     </div>
 
@@ -135,24 +103,16 @@
 
         const auth = firebase.auth();
         const db = firebase.firestore();
-        // Alterado para detectar a região automaticamente ou usar a padrão
-        const functions = firebase.functions(); 
+        const functions = firebase.app().functions('us-central1');
         
-        const mp = new MercadoPago('APP_USR-5b2519c5-3871-4df1-b1cc-398df9ec07bf', {
-            locale: 'pt-BR'
-        });
+        const mp = new MercadoPago('APP_USR-5b2519c5-3871-4df1-b1cc-398df9ec07bf', { locale: 'pt-BR' });
 
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 const doc = await db.collection('users').doc(user.uid).get();
-                if (doc.exists) {
-                    atualizarInterface(doc.data());
-                } else {
-                    window.location.href = 'dashboard.html';
-                }
-            } else {
-                window.location.href = 'index.html';
-            }
+                if (doc.exists) { atualizarInterface(doc.data()); }
+                else { window.location.href = 'dashboard.html'; }
+            } else { window.location.href = 'index.html'; }
         });
 
         function atualizarInterface(userData) {
@@ -170,13 +130,13 @@
                 tagEl.textContent = "Assinatura Ativa";
                 tagEl.className = "status-badge status-active";
                 titleEl.textContent = "Amplie o seu Acesso";
-                msgEl.innerHTML = `Válida por mais <strong>${diffDays} dias</strong>. <br>Adicione mais 30 dias agora.`;
+                msgEl.innerHTML = `Válida por mais <strong>${diffDays} dias</strong>.`;
                 btnContainer.innerHTML = `<a href="dashboard.html" class="btn-secondary">Voltar ao Dashboard</a>`;
             } else {
                 tagEl.textContent = "Assinatura Expirada";
                 tagEl.className = "status-badge status-expired";
                 titleEl.textContent = "Acesso Suspenso";
-                msgEl.innerHTML = "Seu período terminou. Renove para continuar usando o sistema.";
+                msgEl.innerHTML = "Seu período terminou. Renove para continuar.";
                 btnContainer.innerHTML = "";
             }
             card.style.display = 'block';
@@ -187,26 +147,30 @@
             loading.style.display = 'flex';
 
             try {
-                // Tenta chamar a função
                 const createOrder = functions.httpsCallable('createMercadoPagoOrder');
                 const response = await createOrder();
                 
-                console.log("Resposta recebida:", response.data);
+                console.log("Dados recebidos:", response.data);
 
-                if (response.data && response.data.preferenceId) {
-                    // Abre o Checkout Pro (Modal)
+                // LÓGICA CORRIGIDA: Extrair o ID do link caso o backend não envie o campo solto
+                let prefId = response.data.preferenceId;
+                
+                if (!prefId && response.data.paymentLink) {
+                    const url = new URL(response.data.paymentLink);
+                    prefId = url.searchParams.get("pref_id");
+                }
+
+                if (prefId) {
                     mp.checkout({
-                        preference: {
-                            id: response.data.preferenceId
-                        },
+                        preference: { id: prefId },
                         autoOpen: true
                     });
                 } else {
-                    throw new Error("O servidor não retornou um Preference ID válido.");
+                    throw new Error("Não foi possível encontrar o ID da preferência.");
                 }
             } catch (error) {
                 console.error("Erro detalhado:", error);
-                alert("Falha ao conectar com o servidor. Verifique se as Cloud Functions estão ativas.");
+                alert("Erro ao abrir pagamento. Tente novamente.");
             } finally {
                 loading.style.display = 'none';
             }
