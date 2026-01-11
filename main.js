@@ -59,7 +59,7 @@ function getUserCollection(collectionName) {
 }
 
 /**
- * LÓGICA DE INICIALIZAÇÃO OTIMIZADA
+ * LÓGICA DE INICIALIZAÇÃO CORRIGIDA
  */
 function initializeApp(config) {
     if (!firebase.apps.length) {
@@ -78,6 +78,12 @@ function initializeApp(config) {
 
                 // 1. SE O USUÁRIO É NOVO (NÃO TEM DOC NO FIRESTORE)
                 if (!doc.exists) {
+                    // DISPARA O E-MAIL DE VERIFICAÇÃO IMEDIATAMENTE
+                    if (!user.emailVerified) {
+                        await user.sendEmailVerification();
+                        console.log("E-mail de verificação enviado com sucesso.");
+                    }
+
                     const now = new Date();
                     const trialEndDate = new Date();
                     trialEndDate.setDate(now.getDate() + 30);
@@ -92,34 +98,29 @@ function initializeApp(config) {
 
                     await userRef.set(newUserProfile);
                     
-                    // Dispara e-mail de verificação silenciosamente (opcional)
-                    if (!user.emailVerified) {
-                        user.sendEmailVerification().catch(e => console.log("Email já enviado ou erro."));
-                    }
-
-                    showAppNotification(`Bem-vindo ao Stolinx! Você ganhou 30 dias de teste grátis para explorar todas as funções.`, "Boas-vindas!");
+                    showAppNotification(`Bem-vindo! Enviamos um link de confirmação para seu e-mail. Você já ganhou 30 dias de teste grátis!`, "Conta Criada!");
                     
-                    // Recarrega o doc para prosseguir
                     doc = await userRef.get();
+                }
+
+                // 2. VERIFICAÇÃO DE ACESSO (O e-mail precisa estar verificado para prosseguir após o cadastro)
+                if (!user.emailVerified) {
+                    // Se estiver tentando acessar o dashboard sem verificar, barramos aqui.
+                    if (window.location.pathname.includes('dashboard.html')) {
+                        showAppNotification("Por favor, clique no link enviado ao seu e-mail para validar seu acesso.", "Verificação Necessária");
+                        // Opcional: Deslogar se quiser ser rigoroso: auth.signOut();
+                        return; 
+                    }
                 }
 
                 const userData = doc.data();
                 const now = new Date();
 
-                // 2. VERIFICAÇÃO DE ASSINATURA (TRIAL OU PAGO)
+                // 3. VALIDAÇÃO DE ASSINATURA
                 if (userData.active && userData.expiresAt && userData.expiresAt.toDate() > now) {
-                    
-                    // Se o e-mail ainda não foi verificado, mostramos apenas um lembrete sutil, sem bloquear
-                    if (!user.emailVerified) {
-                        console.log("Aviso: E-mail ainda não verificado, mas acesso liberado pelo Trial.");
-                    }
-
-                    // INICIALIZA A INTERFACE (Remove o "Carregando")
                     setupCommonUI(user);
                     if (config.init) config.init();
-                    
                 } else {
-                    // Assinatura expirada
                     window.location.href = 'ativacao.html';
                 }
 
@@ -128,7 +129,8 @@ function initializeApp(config) {
                 showAppNotification("Erro ao carregar perfil.");
             }
         } else {
-            if (window.location.pathname.includes('dashboard.html')) {
+            // Se não estiver logado, manda para o login
+            if (window.location.pathname.includes('dashboard.html') || window.location.pathname.includes('estoque.html')) {
                 window.location.href = 'index.html';
             }
         }
