@@ -6,12 +6,14 @@
     <title>Stolinx - Gerir Assinatura</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script src="https://sdk.mercadopago.com/js/v2"></script>
     <style>
         .activation-container {
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
+            padding: 2rem 0;
             background-color: var(--color-background);
         }
         .activation-card {
@@ -36,25 +38,17 @@
         .status-active { background: #e8f5e9; color: #2e7d32; }
         .status-expired { background: #ffebee; color: #c62828; }
 
-        .btn-renew {
-            background-color: #009688;
-            color: white;
-            padding: 15px 30px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
+        /* Container para o Brick do Mercado Pago */
+        #paymentCardBrick_container {
             width: 100%;
-            margin-bottom: 1rem;
+            margin-top: 1rem;
         }
-        .btn-renew:hover { background-color: #00796b; transform: translateY(-2px); }
 
         .btn-secondary {
             display: inline-block;
             width: 100%;
             padding: 12px;
+            margin-top: 1rem;
             background: transparent;
             border: 1px solid var(--color-info-dark);
             color: var(--color-info-dark);
@@ -90,7 +84,7 @@
 <body>
     <div id="loading-overlay">
         <div class="spinner"></div>
-        <p id="loading-text">A carregar informações...</p>
+        <p id="loading-text">A preparar pagamento...</p>
     </div>
 
     <div class="activation-container">
@@ -98,14 +92,11 @@
             <div id="status-tag" class="status-badge"></div>
             
             <h1 id="activation-title">A carregar...</h1>
-            <p id="activation-msg">Por favor, aguarde enquanto verificamos a sua assinatura.</p>
+            <p id="activation-msg">Aguarde um momento.</p>
             
-            <button id="btn-pay-mp" class="btn-renew">
-                Renovar Agora (Mercado Pago)
-            </button>
+            <div id="paymentCardBrick_container"></div>
 
-            <div id="action-buttons">
-                </div>
+            <div id="action-buttons"></div>
 
             <a href="#" id="logout-activation" style="display: block; margin-top: 1.5rem; color: var(--color-danger); text-decoration: none; font-size: 0.9rem;">Sair da conta</a>
         </div>
@@ -130,6 +121,12 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
         const functions = firebase.app().functions('us-central1');
+        
+        // Inicializa Mercado Pago com sua Public Key
+        const mp = new MercadoPago('APP_USR-5b2519c5-3871-4df1-b1cc-398df9ec07bf', {
+            locale: 'pt-BR'
+        });
+        const bricksBuilder = mp.bricks();
 
         auth.onAuthStateChanged(async (user) => {
             if (user) {
@@ -137,8 +134,9 @@
                     const doc = await db.collection('users').doc(user.uid).get();
                     if (doc.exists) {
                         atualizarInterface(doc.data());
+                        renderPaymentBrick();
                     } else {
-                        window.location.href = 'dashboard.html'; // Se não tem doc, o dashboard cria
+                        window.location.href = 'dashboard.html';
                     }
                 } catch (error) {
                     console.error("Erro ao procurar dados:", error);
@@ -157,52 +155,69 @@
 
             const now = new Date();
             const expiresAt = userData.expiresAt.toDate();
-            const diffTime = expiresAt - now;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
 
             if (diffDays > 0) {
-                // CASO: RENOVAÇÃO ANTECIPADA
                 tagEl.textContent = "Assinatura Ativa";
                 tagEl.className = "status-badge status-active";
                 titleEl.textContent = "Amplie o seu Acesso";
-                msgEl.innerHTML = `A sua conta ainda é válida por mais <strong>${diffDays} dias</strong>. <br>Que tal garantir mais 30 dias de Stolinx agora?`;
-                
-                // Adiciona botão para voltar ao sistema
+                msgEl.innerHTML = `Válida por mais <strong>${diffDays} dias</strong>. <br>Renove agora e garanta mais 30 dias.`;
                 btnContainer.innerHTML = `<a href="dashboard.html" class="btn-secondary">Voltar ao Dashboard</a>`;
             } else {
-                // CASO: EXPIRADO
                 tagEl.textContent = "Assinatura Expirada";
                 tagEl.className = "status-badge status-expired";
                 titleEl.textContent = "Acesso Suspenso";
-                msgEl.innerHTML = "O seu período de acesso terminou. Renove agora para continuar a gerir o seu stock com eficiência.";
+                msgEl.innerHTML = "O seu período terminou. Renove para continuar a gerir o seu stock.";
                 btnContainer.innerHTML = "";
             }
-
             card.style.display = 'block';
         }
 
-        // Lógica do Botão de Pagamento
-        document.getElementById('btn-pay-mp').addEventListener('click', async () => {
-            const loading = document.getElementById('loading-overlay');
-            const loadingText = document.getElementById('loading-text');
-            loadingText.textContent = "A gerar link de pagamento...";
-            loading.style.display = 'flex';
-
+        // Função para Renderizar o Brick do Mercado Pago
+        async function renderPaymentBrick() {
             try {
+                // 1. Chama sua Cloud Function para obter o preferenceId
                 const createOrder = functions.httpsCallable('createMercadoPagoOrder');
                 const response = await createOrder();
-                
-                if (response.data && response.data.paymentLink) {
-                    window.location.href = response.data.paymentLink;
-                } else {
-                    throw new Error("Resposta inválida do servidor.");
-                }
+                const preferenceId = response.data.preferenceId;
+
+                // 2. Configura e renderiza o Brick
+                const settings = {
+                    initialization: {
+                        preferenceId: preferenceId,
+                    },
+                    customization: {
+                        visual: {
+                            hideStatusDetails: true,
+                            hidePaymentButton: false,
+                            theme: 'default', // pode ser 'dark' ou 'bootstrap'
+                        },
+                        paymentMethods: {
+                            bankTransfer: ['all'],
+                            creditCard: ['all'],
+                        }
+                    },
+                    callbacks: {
+                        onReady: () => {
+                            console.log("Brick Pronto");
+                        },
+                        onSubmit: ({ selectedPaymentMethod, formData }) => {
+                            // O Brick cuida do envio para o Checkout Pro
+                        },
+                        onError: (error) => {
+                            console.error("Erro no Brick:", error);
+                        },
+                    },
+                };
+                window.paymentBrickController = await bricksBuilder.create(
+                    'payment',
+                    'paymentCardBrick_container',
+                    settings
+                );
             } catch (error) {
-                console.error("Erro ao iniciar pagamento:", error);
-                alert("Erro ao conectar com o Mercado Pago. Tente novamente.");
-                loading.style.display = 'none';
+                console.error("Erro ao carregar pagamento:", error);
             }
-        });
+        }
 
         document.getElementById('logout-activation').addEventListener('click', (e) => {
             e.preventDefault();
