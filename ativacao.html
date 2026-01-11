@@ -41,7 +41,10 @@
         /* Container para o Brick do Mercado Pago */
         #paymentCardBrick_container {
             width: 100%;
-            margin-top: 1rem;
+    min-height: 500px; /* Aumentado para garantir espaço para o QR Code */
+    margin-top: 1rem;
+    display: block !important;
+    visibility: visible !important;
         }
 
         .btn-secondary {
@@ -69,8 +72,10 @@
 
 /* Corrige possíveis conflitos de SVG */
 #paymentCardBrick_container svg {
-    max-height: 100%;
-    max-width: 100%;
+    width: 50px !important;
+    height: 50px !important;
+    min-width: 20px;
+    min-height: 20px;
 }
 
         #loading-overlay {
@@ -188,7 +193,7 @@
         }
 
         // Função para Renderizar o Brick do Mercado Pago
-        async function renderPaymentBrick() {
+       async function renderPaymentBrick() {
     try {
         const createOrder = functions.httpsCallable('createMercadoPagoOrder');
         const response = await createOrder();
@@ -197,13 +202,13 @@
         const settings = {
             initialization: {
                 preferenceId: preferenceId,
-                amount: 1.00, // Certifique-se que este valor bate com o da Function
+                amount: 1.00, 
             },
             customization: {
                 paymentMethods: {
-                    ticket: "all",
-                    bankTransfer: "all", // Ativa o Pix
-                    creditCard: "all",
+                    bankTransfer: ['pix'], // Força apenas o Pix aqui
+                    creditCard: 'all',
+                    // Removemos ticket/boleto aqui para evitar os avisos do console
                 },
                 visual: {
                     hideStatusDetails: false,
@@ -217,24 +222,20 @@
                     document.getElementById('loading-overlay').style.display = 'none';
                 },
                 onSubmit: ({ selectedPaymentMethod, formData }) => {
-                    // Aqui o Brick assume o processamento. 
-                    // Se for Pix, ele abrirá o QR Code. 
-                    // Se for Cartão, ele processará o formulário.
-                    console.log("Pagamento iniciado via:", selectedPaymentMethod);
                     return new Promise((resolve, reject) => {
-                        // O SDK do Brick gerencia a transação automaticamente com o preferenceId
+                        // O SDK Bricks gerencia o processamento via preferenceId
                         resolve();
                     });
                 },
                 onError: (error) => {
-                    console.error("Erro no SDK do Mercado Pago:", error);
+                    console.error("Erro no SDK:", error);
                     document.getElementById('loading-overlay').style.display = 'none';
                 },
             },
         };
 
-        // Limpa o contêiner antes de renderizar (evita duplicação e erros de SVG)
-        document.getElementById('paymentCardBrick_container').innerHTML = '';
+        const container = document.getElementById('paymentCardBrick_container');
+        container.innerHTML = ''; // Limpa antes de renderizar
         
         window.paymentBrickController = await bricksBuilder.create(
             'payment',
@@ -254,5 +255,6 @@
     </script>
 </body>
 </html>
+
 
 
