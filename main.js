@@ -59,8 +59,7 @@ function getUserCollection(collectionName) {
 }
 
 /**
- * LÓGICA DE INICIALIZAÇÃO CORRIGIDA
- * Garante a criação do Trial de 30 dias antes de verificar a ativação.
+ * LÓGICA DE INICIALIZAÇÃO OTIMIZADA
  */
 function initializeApp(config) {
     if (!firebase.apps.length) {
@@ -75,16 +74,9 @@ function initializeApp(config) {
             const userRef = db.collection('users').doc(user.uid);
 
             try {
-                // 1. Verificar se o e-mail foi verificado primeiro
-                if (!user.emailVerified) {
-                    showAppNotification("Por favor, verifique seu e-mail para ativar sua conta. Verifique sua caixa de entrada ou spam.", "E-mail não verificado");
-                    return;
-                }
-
-                // 2. Tentar buscar o documento do usuário de forma assíncrona
                 let doc = await userRef.get();
 
-                // 3. Se o documento não existe (Novo Usuário), criamos o Trial AGORA
+                // 1. SE O USUÁRIO É NOVO (NÃO TEM DOC NO FIRESTORE)
                 if (!doc.exists) {
                     const now = new Date();
                     const trialEndDate = new Date();
@@ -99,33 +91,44 @@ function initializeApp(config) {
                     };
 
                     await userRef.set(newUserProfile);
-                    console.log("Teste gratuito de 30 dias ativado no banco de dados.");
                     
-                    // Atualizamos a variável 'doc' para prosseguir com os dados novos
+                    // Dispara e-mail de verificação silenciosamente (opcional)
+                    if (!user.emailVerified) {
+                        user.sendEmailVerification().catch(e => console.log("Email já enviado ou erro."));
+                    }
+
+                    showAppNotification(`Bem-vindo ao Stolinx! Você ganhou 30 dias de teste grátis para explorar todas as funções.`, "Boas-vindas!");
+                    
+                    // Recarrega o doc para prosseguir
                     doc = await userRef.get();
                 }
 
-                // 4. Validar os dados de acesso
                 const userData = doc.data();
                 const now = new Date();
 
+                // 2. VERIFICAÇÃO DE ASSINATURA (TRIAL OU PAGO)
                 if (userData.active && userData.expiresAt && userData.expiresAt.toDate() > now) {
-                    // Acesso permitido
+                    
+                    // Se o e-mail ainda não foi verificado, mostramos apenas um lembrete sutil, sem bloquear
+                    if (!user.emailVerified) {
+                        console.log("Aviso: E-mail ainda não verificado, mas acesso liberado pelo Trial.");
+                    }
+
+                    // INICIALIZA A INTERFACE (Remove o "Carregando")
                     setupCommonUI(user);
                     if (config.init) config.init();
+                    
                 } else {
-                    // Assinatura expirada ou inativa
+                    // Assinatura expirada
                     window.location.href = 'ativacao.html';
                 }
 
             } catch (error) {
-                console.error("Erro crítico na inicialização:", error);
-                showAppNotification("Erro ao carregar seu perfil. Tente atualizar a página.");
+                console.error("Erro na inicialização:", error);
+                showAppNotification("Erro ao carregar perfil.");
             }
-
         } else {
-            // Se não estiver logado e tentar acessar página protegida
-            if (window.location.pathname !== '/index.html' && window.location.pathname !== '/') {
+            if (window.location.pathname.includes('dashboard.html')) {
                 window.location.href = 'index.html';
             }
         }
