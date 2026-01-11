@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stolinx - Ativação Necessária</title>
+    <title>Stolinx - Gerir Assinatura</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <style>
@@ -18,9 +18,24 @@
             text-align: center;
             max-width: 500px;
             width: 90%;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 2rem 3rem var(--color-light);
+            background: var(--color-white);
         }
         .activation-card h1 { margin-bottom: 1rem; color: var(--color-primary); }
         .activation-card p { margin-bottom: 2rem; color: var(--color-dark-variant); }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.6rem 1.2rem;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+        .status-active { background: #e8f5e9; color: #2e7d32; }
+        .status-expired { background: #ffebee; color: #c62828; }
+
         .btn-renew {
             background-color: #009688;
             color: white;
@@ -30,9 +45,25 @@
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            transition: background 0.3s;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-bottom: 1rem;
         }
-        .btn-renew:hover { background-color: #00796b; }
+        .btn-renew:hover { background-color: #00796b; transform: translateY(-2px); }
+
+        .btn-secondary {
+            display: inline-block;
+            width: 100%;
+            padding: 12px;
+            background: transparent;
+            border: 1px solid var(--color-info-dark);
+            color: var(--color-info-dark);
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: 0.3s;
+        }
+        .btn-secondary:hover { background: var(--color-light); }
 
         #loading-overlay {
             display: none;
@@ -44,7 +75,6 @@
             align-items: center;
             justify-content: center;
         }
-        /* Animação do Spinner */
         .spinner {
             width: 50px;
             height: 50px;
@@ -60,25 +90,32 @@
 <body>
     <div id="loading-overlay">
         <div class="spinner"></div>
-        <p>Conectando ao Mercado Pago...</p>
+        <p id="loading-text">A carregar informações...</p>
     </div>
 
     <div class="activation-container">
-        <div class="card activation-card">
-            <h1>Assinatura Expirada</h1>
-            <p>Para continuar utilizando o <strong>Stolinx</strong> e gerenciar seu estoque com eficiência, renove sua assinatura por apenas <strong>R$ 1,00/mês</strong>.</p>
+        <div class="card activation-card" id="main-card" style="display: none;">
+            <div id="status-tag" class="status-badge"></div>
+            
+            <h1 id="activation-title">A carregar...</h1>
+            <p id="activation-msg">Por favor, aguarde enquanto verificamos a sua assinatura.</p>
             
             <button id="btn-pay-mp" class="btn-renew">
                 Renovar Agora (Mercado Pago)
             </button>
 
-            <a href="#" id="logout-activation" style="display: block; margin-top: 1.5rem; color: var(--color-danger); text-decoration: none;">Sair da conta</a>
+            <div id="action-buttons">
+                </div>
+
+            <a href="#" id="logout-activation" style="display: block; margin-top: 1.5rem; color: var(--color-danger); text-decoration: none; font-size: 0.9rem;">Sair da conta</a>
         </div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-functions.js"></script>
+    
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyAv54tgJ5oYrwTSNXpB2rCGjNbhJhe2CoM",
@@ -91,15 +128,67 @@
         firebase.initializeApp(firebaseConfig);
 
         const auth = firebase.auth();
-        // AJUSTE: Forçando a região us-central1 para evitar erro 404
+        const db = firebase.firestore();
         const functions = firebase.app().functions('us-central1');
 
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                try {
+                    const doc = await db.collection('users').doc(user.uid).get();
+                    if (doc.exists) {
+                        atualizarInterface(doc.data());
+                    } else {
+                        window.location.href = 'dashboard.html'; // Se não tem doc, o dashboard cria
+                    }
+                } catch (error) {
+                    console.error("Erro ao procurar dados:", error);
+                }
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        function atualizarInterface(userData) {
+            const titleEl = document.getElementById('activation-title');
+            const msgEl = document.getElementById('activation-msg');
+            const tagEl = document.getElementById('status-tag');
+            const btnContainer = document.getElementById('action-buttons');
+            const card = document.getElementById('main-card');
+
+            const now = new Date();
+            const expiresAt = userData.expiresAt.toDate();
+            const diffTime = expiresAt - now;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays > 0) {
+                // CASO: RENOVAÇÃO ANTECIPADA
+                tagEl.textContent = "Assinatura Ativa";
+                tagEl.className = "status-badge status-active";
+                titleEl.textContent = "Amplie o seu Acesso";
+                msgEl.innerHTML = `A sua conta ainda é válida por mais <strong>${diffDays} dias</strong>. <br>Que tal garantir mais 30 dias de Stolinx agora?`;
+                
+                // Adiciona botão para voltar ao sistema
+                btnContainer.innerHTML = `<a href="dashboard.html" class="btn-secondary">Voltar ao Dashboard</a>`;
+            } else {
+                // CASO: EXPIRADO
+                tagEl.textContent = "Assinatura Expirada";
+                tagEl.className = "status-badge status-expired";
+                titleEl.textContent = "Acesso Suspenso";
+                msgEl.innerHTML = "O seu período de acesso terminou. Renove agora para continuar a gerir o seu stock com eficiência.";
+                btnContainer.innerHTML = "";
+            }
+
+            card.style.display = 'block';
+        }
+
+        // Lógica do Botão de Pagamento
         document.getElementById('btn-pay-mp').addEventListener('click', async () => {
             const loading = document.getElementById('loading-overlay');
+            const loadingText = document.getElementById('loading-text');
+            loadingText.textContent = "A gerar link de pagamento...";
             loading.style.display = 'flex';
 
             try {
-                // Chama a função exatamente como nomeada no seu index.js
                 const createOrder = functions.httpsCallable('createMercadoPagoOrder');
                 const response = await createOrder();
                 
@@ -110,7 +199,7 @@
                 }
             } catch (error) {
                 console.error("Erro ao iniciar pagamento:", error);
-                alert("Erro ao conectar com o Mercado Pago: " + (error.message || "Tente novamente."));
+                alert("Erro ao conectar com o Mercado Pago. Tente novamente.");
                 loading.style.display = 'none';
             }
         });
@@ -122,4 +211,3 @@
     </script>
 </body>
 </html>
-
